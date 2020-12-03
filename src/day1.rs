@@ -12,7 +12,7 @@ fn parse_input_hashed(input: &str) -> Result<HashSet<u32>, ParseIntError> {
     input.lines().map(str::parse).collect()
 }
 
-fn heads<T>(data: &[T]) -> impl Iterator<Item = (&T, &[T])> + '_ {
+fn tails<T>(data: &[T]) -> impl Iterator<Item = (&T, &[T])> + '_ {
     data.iter()
         .enumerate()
         .map(move |(idx, v)| (v, &data[idx + 1..]))
@@ -20,7 +20,7 @@ fn heads<T>(data: &[T]) -> impl Iterator<Item = (&T, &[T])> + '_ {
 
 #[aoc(day1, part1)]
 fn part1(data: &[u32]) -> Option<u32> {
-    heads(data)
+    tails(data)
         .flat_map(move |(&x, xs)| xs.iter().map(move |&y| (x, y)))
         .find_map(|(x, y)| if x + y == 2020 { Some(x * y) } else { None })
 }
@@ -40,9 +40,9 @@ fn part1_hashed(set: &HashSet<u32>) -> Option<u32> {
 
 #[aoc(day1, part2)]
 fn part2(data: &[u32]) -> Option<u32> {
-    heads(data)
+    tails(data)
         .flat_map(move |(&x, xs)| {
-            heads(xs).flat_map(move |(&y, ys)| ys.iter().map(move |&z| (x, y, z)))
+            tails(xs).flat_map(move |(&y, ys)| ys.iter().map(move |&z| (x, y, z)))
         })
         .find_map(|(x, y, z)| {
             if x + y + z == 2020 {
@@ -57,7 +57,7 @@ fn part2(data: &[u32]) -> Option<u32> {
 fn part2_hashed(data: &[u32]) -> Option<u32> {
     let set = data.iter().cloned().collect::<HashSet<_>>();
 
-    heads(data)
+    tails(data)
         .flat_map(move |(&x, xs)| xs.iter().map(move |&y| (x, y)))
         .find_map(|(x, y)| {
             2020u32
