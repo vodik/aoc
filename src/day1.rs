@@ -7,6 +7,11 @@ fn parse_input(input: &str) -> Result<Vec<u32>, ParseIntError> {
     input.lines().map(str::parse).collect()
 }
 
+#[aoc_generator(day1, part1, HashSet)]
+fn parse_input_hashed(input: &str) -> Result<HashSet<u32>, ParseIntError> {
+    input.lines().map(str::parse).collect()
+}
+
 fn heads<T>(data: &[T]) -> impl Iterator<Item = (&T, &[T])> + '_ {
     data.iter()
         .enumerate()
@@ -20,11 +25,9 @@ fn part1(data: &[u32]) -> Option<u32> {
         .find_map(|(x, y)| if x + y == 2020 { Some(x * y) } else { None })
 }
 
-#[aoc(day1, part1, hashed)]
-fn part1_hashed(data: &[u32]) -> Option<u32> {
-    let set = data.iter().cloned().collect::<HashSet<_>>();
-
-    data.iter().find_map(|value| {
+#[aoc(day1, part1, HashSet)]
+fn part1_hashed(set: &HashSet<u32>) -> Option<u32> {
+    set.iter().find_map(|value| {
         2020u32.checked_sub(*value).and_then(|target| {
             if set.contains(&target) {
                 Some(value * target)
@@ -50,7 +53,7 @@ fn part2(data: &[u32]) -> Option<u32> {
         })
 }
 
-#[aoc(day1, part2, hashed)]
+#[aoc(day1, part2, HashSet)]
 fn part2_hashed(data: &[u32]) -> Option<u32> {
     let set = data.iter().cloned().collect::<HashSet<_>>();
 
