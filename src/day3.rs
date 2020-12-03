@@ -1,24 +1,15 @@
 use aoc_runner_derive::{aoc, aoc_generator};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum Tile {
     Tree,
     Empty,
 }
 
-impl Tile {
-    fn is_tree(&self) -> bool {
-        match self {
-            Tile::Tree => true,
-            Tile::Empty => false,
-        }
-    }
-}
-
 #[derive(Debug)]
 struct Map {
-    width: usize,
     tiles: Vec<Tile>,
+    width: usize,
 }
 
 impl Map {
@@ -29,7 +20,7 @@ impl Map {
                     .get(step * down * self.width + step * right % self.width)
             })
             .take_while(|tile| tile.is_some())
-            .filter(|tile| tile.unwrap().is_tree())
+            .filter(|tile| tile.unwrap() == &Tile::Tree)
             .count()
     }
 }
@@ -56,8 +47,8 @@ fn parse_map(input: &str) -> Map {
         .collect();
 
     Map {
+        tiles,
         width: width.unwrap(),
-        tiles: tiles,
     }
 }
 
