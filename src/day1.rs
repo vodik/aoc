@@ -25,12 +25,13 @@ fn part1_hashed(data: &[u32]) -> Option<u32> {
     let set = data.iter().cloned().collect::<HashSet<_>>();
 
     data.iter().find_map(|value| {
-        let candidate = 2020 - value;
-        if set.contains(&candidate) {
-            Some(value * candidate)
-        } else {
-            None
-        }
+        2020u32.checked_sub(*value).and_then(|target| {
+            if set.contains(&target) {
+                Some(value * target)
+            } else {
+                None
+            }
+        })
     })
 }
 
@@ -56,11 +57,15 @@ fn part2_hashed(data: &[u32]) -> Option<u32> {
     heads(data)
         .flat_map(move |(&x, xs)| xs.iter().map(move |&y| (x, y)))
         .find_map(|(x, y)| {
-            let candidate = 2020 - x - y;
-            if set.contains(&candidate) {
-                Some(x * y * candidate)
-            } else {
-                None
-            }
+            2020u32
+                .checked_sub(x)
+                .and_then(|target| target.checked_sub(y))
+                .and_then(|target| {
+                    if set.contains(&target) {
+                        Some(x * y * target)
+                    } else {
+                        None
+                    }
+                })
         })
 }
