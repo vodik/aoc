@@ -6,6 +6,15 @@ enum Tile {
     Empty,
 }
 
+impl Tile {
+    fn is_tree(&self) -> bool {
+        match self {
+            Tile::Tree => true,
+            Tile::Empty => false,
+        }
+    }
+}
+
 #[derive(Debug)]
 struct Map {
     width: usize,
@@ -14,22 +23,14 @@ struct Map {
 
 impl Map {
     fn path(&self, right: usize, down: usize) -> usize {
-        let mut acc = 0;
-        let mut row = 0;
-        let mut offset = 0;
-
-        while let Some(tile) = self.tiles.get(row * self.width + offset) {
-            acc += match tile {
-                Tile::Tree => 1,
-                Tile::Empty => 0,
-            };
-
-            row += down;
-            offset += right;
-            offset %= self.width;
-        }
-
-        acc
+        (0..)
+            .map(|step| {
+                self.tiles
+                    .get(step * down * self.width + step * right % self.width)
+            })
+            .take_while(|tile| tile.is_some())
+            .filter(|tile| tile.unwrap().is_tree())
+            .count()
     }
 }
 
