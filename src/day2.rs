@@ -3,7 +3,9 @@ use nom::{
     bytes::complete::tag,
     character::complete::{alphanumeric1, digit1, satisfy},
     combinator::{all_consuming, map_res, recognize},
-    IResult,
+    error::Error,
+    multi::separated_list1,
+    Finish, IResult,
 };
 use std::collections::HashMap;
 use std::ops::RangeInclusive;
@@ -48,15 +50,19 @@ fn parse_entry(input: &str) -> IResult<&str, (Rule, String)> {
     Ok((input, (rule, String::from(line))))
 }
 
+fn parse_entries(input: &str) -> IResult<&str, Vec<(Rule, String)>> {
+    separated_list1(tag("\n"), parse_entry)(input)
+}
+
 #[aoc_generator(day2)]
-fn parse_input(input: &str) -> Vec<(Rule, String)> {
-    input
-        .lines()
-        .map(|line| {
-            let (_, result) = all_consuming(parse_entry)(line).expect("Unable to parse password");
-            result
-        })
-        .collect()
+fn parse_input(input: &str) -> Result<Vec<(Rule, String)>, Error<String>> {
+    match all_consuming(parse_entries)(input).finish() {
+        Ok((_, output)) => Ok(output),
+        Err(Error { input, code }) => Err(Error {
+            input: input.to_string(),
+            code,
+        }),
+    }
 }
 
 fn byte_freq(input: &[u8]) -> HashMap<u8, u32> {

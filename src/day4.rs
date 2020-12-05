@@ -3,7 +3,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_while_m_n},
     character::complete::{alphanumeric1, digit1, one_of},
-    combinator::{map, map_res, recognize},
+    combinator::{all_consuming, map, map_res, recognize},
     error::Error,
     multi::{many1, separated_list1},
     Finish, IResult,
@@ -209,7 +209,7 @@ fn parse_passports(input: &str) -> IResult<&str, Vec<Passport>> {
 
 #[aoc_generator(day4)]
 fn parse_input(input: &str) -> Result<Vec<Passport>, Error<String>> {
-    match parse_passports(input).finish() {
+    match all_consuming(parse_passports)(input).finish() {
         Ok((_, output)) => Ok(output),
         Err(Error { input, code }) => Err(Error {
             input: input.to_string(),
