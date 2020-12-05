@@ -7,22 +7,21 @@ use nom::{
     multi::separated_list1,
     Finish, IResult,
 };
-use std::collections::HashMap;
 use std::ops::RangeInclusive;
 
 #[derive(Debug, PartialEq)]
 pub struct Rule {
-    pub args: (u32, u32),
+    pub args: (usize, usize),
     pub target: u8,
 }
 
 impl Rule {
-    fn as_range(&self) -> RangeInclusive<u32> {
+    fn as_range(&self) -> RangeInclusive<usize> {
         self.args.0..=self.args.1
     }
 }
 
-fn number(input: &str) -> IResult<&str, u32> {
+fn number(input: &str) -> IResult<&str, usize> {
     map_res(recognize(digit1), str::parse)(input)
 }
 
@@ -65,25 +64,12 @@ fn parse_input(input: &str) -> Result<Vec<(Rule, String)>, Error<String>> {
     }
 }
 
-fn byte_freq(input: &[u8]) -> HashMap<u8, u32> {
-    let mut counter = HashMap::new();
-    for b in input {
-        let count = counter.entry(*b).or_insert(0);
-        *count += 1;
-    }
-    counter
-}
-
 #[aoc(day2, part1)]
 fn part1(data: &[(Rule, String)]) -> usize {
     data.iter()
         .filter(|(rule, password)| {
-            let counts = byte_freq(password.as_bytes());
-
-            match counts.get(&rule.target) {
-                Some(count) => rule.as_range().contains(count),
-                None => false,
-            }
+            let count = password.bytes().filter(|c| *c == rule.target).count();
+            rule.as_range().contains(&count)
         })
         .count()
 }
@@ -93,9 +79,9 @@ fn part2(data: &[(Rule, String)]) -> usize {
     data.iter()
         .filter(|(rule, password)| {
             let bytes = password.as_bytes();
-            let first = bytes[rule.args.0 as usize - 1];
-            let second = bytes[rule.args.1 as usize - 1];
 
+            let first = bytes[rule.args.0 - 1];
+            let second = bytes[rule.args.1 - 1];
             first != second && (first == rule.target || second == rule.target)
         })
         .count()
