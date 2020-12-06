@@ -16,11 +16,13 @@ impl AnswerSheet {
     }
 
     fn intersection(&self) -> HashSet<char> {
-        self.0
-            .clone()
-            .into_iter()
-            .fold_first(|acc, set| acc.intersection(&set).cloned().collect())
-            .unwrap()
+        if let Some(first) = self.0.get(0) {
+            self.0[1..].iter().fold(first.clone(), |acc, set| {
+                acc.intersection(&set).cloned().collect()
+            })
+        } else {
+            HashSet::new()
+        }
     }
 }
 

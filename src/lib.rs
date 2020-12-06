@@ -1,5 +1,3 @@
-#![feature(iterator_fold_self)]
-
 #[macro_use]
 extern crate aoc_runner_derive;
 
