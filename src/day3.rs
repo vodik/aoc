@@ -1,5 +1,3 @@
-use aoc_runner_derive::{aoc, aoc_generator};
-
 #[derive(Debug, PartialEq)]
 enum Tile {
     Tree,

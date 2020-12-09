@@ -1,4 +1,3 @@
-use aoc_runner_derive::{aoc, aoc_generator};
 use nom::{
     bytes::complete::tag,
     character::complete::{alphanumeric1, digit1, satisfy},
