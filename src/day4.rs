@@ -10,6 +10,7 @@ use nom::{
 use std::collections::HashMap;
 use std::str::FromStr;
 
+#[derive(Debug)]
 enum Measurement {
     Metric(u32),
     Imperial(u32),
@@ -27,7 +28,7 @@ impl FromStr for Measurement {
     type Err = Error<String>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parse_measurement(s).finish() {
+        match all_consuming(parse_measurement)(s).finish() {
             Ok((_, measurement)) => Ok(measurement),
             Err(Error { input, code }) => Err(Error {
                 input: input.to_string(),
@@ -55,7 +56,7 @@ impl FromStr for HexColor {
     type Err = Error<String>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parse_hex(s).finish() {
+        match all_consuming(parse_hex)(s).finish() {
             Ok((_, color)) => Ok(color),
             Err(Error { input, code }) => Err(Error {
                 input: input.to_string(),
@@ -92,7 +93,7 @@ impl FromStr for Color {
     type Err = Error<String>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parse_color(s).finish() {
+        match all_consuming(parse_color)(s).finish() {
             Ok((_, color)) => Ok(color),
             Err(Error { input, code }) => Err(Error {
                 input: input.to_string(),
@@ -117,7 +118,7 @@ impl FromStr for Pid {
     type Err = Error<String>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parse_pid(s).finish() {
+        match all_consuming(parse_pid)(s).finish() {
             Ok((_, pid)) => Ok(pid),
             Err(Error { input, code }) => Err(Error {
                 input: input.to_string(),
