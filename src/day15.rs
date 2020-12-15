@@ -13,15 +13,11 @@ fn play(data: &[u32], target: usize) -> u32 {
         .map(|(idx, value)| (*value, idx + 1))
         .collect();
 
-    let mut current: u32 = 0;
-    for turn in data.len() + 1..target {
-        current = match history.insert(current, turn) {
-            Some(previous) => (turn - previous) as u32,
-            None => 0,
-        }
-    }
-
-    current
+    (data.len() + 1..target).fold(0, |current, turn| {
+        history
+            .insert(current, turn)
+            .map_or(0, |previous| (turn - previous) as u32)
+    })
 }
 
 #[aoc(day15, part1)]
