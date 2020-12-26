@@ -6,6 +6,7 @@ version = "1.0.0"
 dependencies = [
  "aoc-runner",
  "aoc-runner-derive",
+ "bytecount",
  "itertools",
  "maplit",
  "nom",
@@ -65,6 +66,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bytecount"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72feb31ffc86498dacdbd0fcebb56138e7177a8cc5cea4516031d15ae85a742e"
+dependencies = [
+ "packed_simd_2",
+]
+
+[[package]]
 name = "cfg-if"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -111,6 +121,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
+
+[[package]]
 name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -132,6 +148,16 @@ dependencies = [
  "lexical-core",
  "memchr",
  "version_check",
+]
+
+[[package]]
+name = "packed_simd_2"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3278e0492f961fd4ae70909f56b2723a7e8d01a228427294e19cdfdebda89a17"
+dependencies = [
+ "cfg-if",
+ "libm",
 ]
 
 [[package]]

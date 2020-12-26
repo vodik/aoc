@@ -1,9 +1,10 @@
 use nom::{
     bytes::complete::tag,
-    character::complete::{alphanumeric1, digit1, satisfy},
-    combinator::{all_consuming, map_res, recognize},
+    character::complete::{alphanumeric1, satisfy},
+    combinator::{all_consuming, map},
     error::Error,
     multi::separated_list1,
+    sequence::separated_pair,
     Finish, IResult,
 };
 use std::ops::RangeInclusive;
@@ -25,35 +26,28 @@ fn number(input: &str) -> IResult<&str, usize> {
 }
 
 fn parse_rule(input: &str) -> IResult<&str, Rule> {
-    let (input, arg0) = number(input)?;
-    let (input, _) = tag("-")(input)?;
-    let (input, arg1) = number(input)?;
-    let (input, _) = tag(" ")(input)?;
-    let (input, alpha) = satisfy(|c| c.is_alphabetic())(input)?;
-
-    Ok((
-        input,
-        Rule {
-            args: (arg0, arg1),
+    map(
+        separated_pair(range, tag(" "), satisfy(|c| c.is_alphabetic())),
+        |(args, alpha)| Rule {
+            args,
             target: alpha as u8,
         },
-    ))
+    )(input)
 }
 
-fn parse_entry(input: &str) -> IResult<&str, (Rule, String)> {
-    let (input, rule) = parse_rule(input)?;
-    let (input, _) = tag(": ")(input)?;
-    let (input, line) = alphanumeric1(input)?;
-
-    Ok((input, (rule, String::from(line))))
+fn parse_entry(input: &str) -> IResult<&str, (Rule, Vec<u8>)> {
+    map(
+        separated_pair(parse_rule, tag(": "), alphanumeric1),
+        |(rule, line)| (rule, line.as_bytes().to_vec()),
+    )(input)
 }
 
-fn parse_entries(input: &str) -> IResult<&str, Vec<(Rule, String)>> {
+fn parse_entries(input: &str) -> IResult<&str, Vec<(Rule, Vec<u8>)>> {
     separated_list1(tag("\n"), parse_entry)(input)
 }
 
 #[aoc_generator(day2)]
-fn parse_input(input: &str) -> Result<Vec<(Rule, String)>, Error<String>> {
+fn parse_input(input: &str) -> Result<Vec<(Rule, Vec<u8>)>, Error<String>> {
     match all_consuming(parse_entries)(input).finish() {
         Ok((_, output)) => Ok(output),
         Err(Error { input, code }) => Err(Error {
@@ -64,60 +58,22 @@ fn parse_input(input: &str) -> Result<Vec<(Rule, String)>, Error<String>> {
 }
 
 #[aoc(day2, part1)]
-fn part1(data: &[(Rule, String)]) -> usize {
+fn part1(data: &[(Rule, Vec<u8>)]) -> usize {
     data.iter()
         .filter(|(rule, password)| {
-            let count = password.bytes().filter(|c| *c == rule.target).count();
+            let count = bytecount::count(password, rule.target);
             rule.as_range().contains(&count)
         })
         .count()
 }
 
 #[aoc(day2, part2)]
-fn part2(data: &[(Rule, String)]) -> usize {
+fn part2(data: &[(Rule, Vec<u8>)]) -> usize {
     data.iter()
         .filter(|(rule, password)| {
-            let bytes = password.as_bytes();
-
-            let first = bytes[rule.args.0 - 1];
-            let second = bytes[rule.args.1 - 1];
+            let first = password[rule.args.0 - 1];
+            let second = password[rule.args.1 - 1];
             first != second && (first == rule.target || second == rule.target)
         })
         .count()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn rule_parser() {
-        assert_eq!(
-            parse_rule("1-3 a"),
-            Ok((
-                "",
-                Rule {
-                    args: (1, 3),
-                    target: 'a' as u8
-                }
-            ))
-        );
-    }
-
-    #[test]
-    fn entry_parser() {
-        assert_eq!(
-            parse_entry("4-9 b: cdefg"),
-            Ok((
-                "",
-                (
-                    Rule {
-                        args: (4, 9),
-                        target: 'b' as u8
-                    },
-                    "cdefg".into()
-                )
-            ))
-        );
-    }
 }
