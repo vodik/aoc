@@ -79,13 +79,12 @@ fn part1(data: &[Node]) -> usize {
             .collect::<HashSet<_>>();
 
         if new_level.is_empty() {
-            break;
+            break holders.len();
         }
 
         holders.extend(&new_level);
         level = new_level;
     }
-    holders.len()
 }
 
 fn find_rules<'a>(data: &'a [Node], desc: &'a str) -> &'a [(u64, String)] {
@@ -107,8 +106,8 @@ fn follow_rules(data: &[Node], rules: &[(u64, String)]) -> u64 {
         .iter()
         .map(|(count, desc)| {
             let rules = find_rules(data, desc);
-            let x = follow_rules(data, rules);
-            count + count * x
+            let links = follow_rules(data, rules);
+            count + count * links
         })
         .sum()
 }
