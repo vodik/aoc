@@ -1,3 +1,6 @@
+#![feature(hash_drain_filter)]
+#![feature(map_into_keys_values)]
+
 #[macro_use]
 extern crate aoc_runner_derive;
 
@@ -22,6 +25,7 @@ pub mod day14;
 pub mod day15;
 pub mod day16;
 pub mod day20;
+pub mod day21;
 pub mod day22;
 pub mod day24;
 pub mod day25;
