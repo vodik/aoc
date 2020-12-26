@@ -11,7 +11,7 @@ struct Map {
 }
 
 impl Map {
-    fn path(&self, right: usize, down: usize) -> usize {
+    fn path(&self, (right, down): (usize, usize)) -> usize {
         (0..)
             .map(|step| {
                 self.tiles
@@ -52,10 +52,13 @@ fn parse_map(input: &str) -> Map {
 
 #[aoc(day3, part1)]
 fn part1(map: &Map) -> usize {
-    map.path(3, 1)
+    map.path((3, 1))
 }
 
 #[aoc(day3, part2)]
 fn part2(map: &Map) -> usize {
-    map.path(1, 1) * map.path(3, 1) * map.path(5, 1) * map.path(7, 1) * map.path(1, 2)
+    [(1, 1), (3, 1), (5, 1), (7, 1), (1, 2)]
+        .iter()
+        .map(|&slope| map.path(slope))
+        .product()
 }
