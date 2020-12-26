@@ -130,9 +130,11 @@ fn recursive_combat(mut deck1: VecDeque<u32>, mut deck2: VecDeque<u32>) -> (Play
 
 #[aoc(day22, part2)]
 fn part2((deck1, deck2): &Game) -> u32 {
-    let (_, winner) = recursive_combat(
-        deck1.iter().copied().collect(),
-        deck2.iter().copied().collect(),
-    );
-    score_deck(&winner)
+    score_deck(
+        &recursive_combat(
+            deck1.iter().copied().collect(),
+            deck2.iter().copied().collect(),
+        )
+        .1,
+    )
 }
