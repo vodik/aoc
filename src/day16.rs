@@ -75,13 +75,13 @@ fn parse_input(input: &str) -> Result<Document, Error<String>> {
     }
 }
 
+fn valid_fields(rules: &[Rule]) -> HashSet<u32> {
+    rules.iter().flat_map(|rule| rule.iter_range()).collect()
+}
+
 #[aoc(day16, part1)]
 fn part1((rules, _, neighbours): &Document) -> u32 {
-    let valid = rules
-        .iter()
-        .flat_map(|rule| rule.iter_range())
-        .collect::<HashSet<_>>();
-
+    let valid = valid_fields(rules);
     neighbours
         .iter()
         .flat_map(|ticket| ticket.iter().filter(|field| !valid.contains(field)))
@@ -90,31 +90,27 @@ fn part1((rules, _, neighbours): &Document) -> u32 {
 
 #[aoc(day16, part2)]
 fn part2((rules, ticket, neighbours): &Document) -> u64 {
-    let valid = rules
-        .iter()
-        .flat_map(|rule| rule.iter_range())
-        .collect::<HashSet<_>>();
-
+    let valid = valid_fields(rules);
     let valid_neighbours = neighbours
         .iter()
         .filter(|ticket| ticket.iter().all(|field| valid.contains(field)))
         .collect::<Vec<_>>();
 
     let expected_len = valid_neighbours[0].len();
-    let mut fields = vec![HashSet::new(); expected_len];
-    let mut possibilities: HashMap<_, HashSet<_>> = HashMap::new();
+    let mut transpose = vec![HashSet::new(); expected_len];
 
     for ticket in valid_neighbours {
-        assert_eq!(ticket.len(), expected_len);
-
         for (idx, field) in ticket.iter().enumerate() {
-            fields[idx].insert(*field);
+            transpose[idx].insert(*field);
         }
     }
 
+    let mut possibilities: HashMap<_, HashSet<_>> = HashMap::new();
+    let mut matches = Vec::with_capacity(6);
+
     for rule in rules {
-        for (idx, fieldset) in fields.iter().enumerate() {
-            if fieldset.iter().all(|value| rule.contains(value)) {
+        for (idx, values) in transpose.iter().enumerate() {
+            if values.iter().all(|value| rule.contains(value)) {
                 possibilities
                     .entry(rule.name.clone())
                     .or_insert_with(Default::default)
@@ -125,33 +121,29 @@ fn part2((rules, ticket, neighbours): &Document) -> u64 {
 
     loop {
         let unique = possibilities
-            .values()
-            .filter(|&set| set.len() == 1)
-            .flat_map(|set| set.clone())
-            .collect::<HashSet<_>>();
+            .drain_filter(|_, set| set.len() == 1)
+            .flat_map(|(key, unique_set)| {
+                unique_set
+                    .into_iter()
+                    .next()
+                    .map(|position| (key, position))
+            })
+            .collect::<Vec<_>>();
 
-        if unique.len() == possibilities.len() {
+        if unique.is_empty() {
             break;
         }
 
-        for set in possibilities.values_mut() {
-            if set.len() == 1 {
-                continue;
+        for (key, value) in &unique {
+            for set in possibilities.values_mut() {
+                set.remove(value);
             }
 
-            set.retain(|field| !unique.contains(field));
+            if key.starts_with("departure") {
+                matches.push(*value);
+            }
         }
     }
 
-    possibilities
-        .iter()
-        .filter_map(|(key, set)| {
-            if key.starts_with("departure") {
-                set.iter().next().cloned()
-            } else {
-                None
-            }
-        })
-        .map(|idx| ticket[idx] as u64)
-        .product()
+    matches.into_iter().map(|idx| ticket[idx] as u64).product()
 }
