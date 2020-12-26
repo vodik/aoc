@@ -16,8 +16,10 @@ impl AnswerSheet {
     }
 
     fn intersection(&self) -> HashSet<char> {
-        if let Some(first) = self.0.get(0) {
-            self.0[1..].iter().fold(first.clone(), |acc, set| {
+        let mut iter = self.0.iter();
+
+        if let Some(first) = iter.next() {
+            iter.fold(first.clone(), |acc, set| {
                 acc.intersection(&set).cloned().collect()
             })
         } else {
