@@ -28,8 +28,7 @@ fn parse_input(input: &str) -> Result<(u64, Vec<Bus>), ParseIntError> {
 }
 
 #[aoc(day13, part1)]
-fn part1(data: &(u64, Vec<Bus>)) -> Option<u64> {
-    let (start, schedule) = data;
+fn part1((start, schedule): &(u64, Vec<Bus>)) -> Option<u64> {
     let schedule = schedule
         .iter()
         .filter_map(|entry| match entry {
@@ -47,38 +46,7 @@ fn part1(data: &(u64, Vec<Bus>)) -> Option<u64> {
 }
 
 #[aoc(day13, part2)]
-fn part2(data: &(u64, Vec<Bus>)) -> u64 {
-    let (_, schedule) = data;
-    let offsets = schedule
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, entry)| match entry {
-            Bus::OutOfService => None,
-            Bus::Bus(id) => Some((idx as u64 % *id, *id)),
-        })
-        .collect::<Vec<_>>();
-
-    let lcd = offsets.iter().map(|(_, id)| *id).product::<u64>();
-    let sum = offsets
-        .iter()
-        .map(|(offset, id)| {
-            let step = lcd / id;
-            let mut timestamp = step;
-
-            while timestamp % id != 1 {
-                timestamp += step;
-            }
-
-            timestamp * (id - offset)
-        })
-        .sum::<u64>();
-
-    sum % lcd
-}
-
-#[aoc(day13, part2, Iterative)]
-fn part2_alt(data: &(u64, Vec<Bus>)) -> u64 {
-    let (_, schedule) = data;
+fn part2_alt((_, schedule): &(u64, Vec<Bus>)) -> u64 {
     let offsets = schedule
         .iter()
         .enumerate()
