@@ -5,6 +5,10 @@ use nom::{
     Finish, IResult,
 };
 
+const MAX_ITERATIONS: usize = 1_000_000_000;
+
+const SHARED_BASE: u64 = 7;
+const SHARED_MOD: u64 = 20201227;
 
 fn parse_keys(input: &str) -> IResult<&str, (u64, u64)> {
     separated_pair(number, tag("\n"), number)(input)
@@ -24,13 +28,13 @@ fn parse_input(input: &str) -> Result<(u64, u64), Error<String>> {
 fn transform(subject: u64) -> impl Iterator<Item = u64> {
     let mut value = 1;
     unfold((), move |_| {
-        value = (value % 20201227) * (subject % 20201227) % 20201227;
+        value = (value % SHARED_MOD) * (subject % SHARED_MOD) % SHARED_MOD;
         Some(value)
     })
 }
 
 fn crack(target: u64, iterations: usize) -> Option<usize> {
-    transform(7)
+    transform(SHARED_BASE)
         .take(iterations)
         .enumerate()
         .find_map(|(count, value)| {
@@ -44,6 +48,6 @@ fn crack(target: u64, iterations: usize) -> Option<usize> {
 
 #[aoc(day25, part1)]
 fn part1((card_key, door_key): &(u64, u64)) -> Option<u64> {
-    let loop_size = crack(*card_key, 100_000_000).unwrap();
-    transform(*door_key).skip(loop_size - 1).next()
+    let loop_size = crack(*card_key, MAX_ITERATIONS).unwrap();
+    transform(*door_key).nth(loop_size - 1)
 }
