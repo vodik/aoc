@@ -12,14 +12,14 @@ use std::convert::TryInto;
 
 #[derive(Debug, Clone, Copy)]
 enum Op {
-    Nop,
-    Acc,
-    Jmp,
+    Nop(i32),
+    Acc(i32),
+    Jmp(i32),
 }
 
 #[derive(Debug)]
-struct Program {
-    prog: Vec<(Op, i32)>,
+struct Machine {
+    program: Vec<Op>,
     pc: usize,
     acc: i32,
     trace: HashSet<usize>,
@@ -32,10 +32,10 @@ enum State {
     Halted,
 }
 
-impl Program {
-    fn new(prog: Vec<(Op, i32)>) -> Self {
+impl Machine {
+    fn new(program: Vec<Op>) -> Self {
         Self {
-            prog,
+            program,
             pc: 0,
             acc: 0,
             trace: HashSet::new(),
@@ -43,19 +43,19 @@ impl Program {
     }
 
     fn step(&mut self) -> State {
-        if let Some((op, arg)) = self.prog.get(self.pc) {
+        if let Some(op) = self.program.get(self.pc) {
             if self.trace.contains(&self.pc) {
                 return State::Blocked;
             }
             self.trace.insert(self.pc);
 
             match op {
-                Op::Nop => self.pc += 1,
-                Op::Acc => {
+                Op::Nop(_) => self.pc += 1,
+                Op::Acc(arg) => {
                     self.acc += arg;
                     self.pc += 1
                 }
-                Op::Jmp => self.pc = (self.pc as i32 + *arg).try_into().unwrap(),
+                Op::Jmp(arg) => self.pc = (self.pc as i32 + *arg).try_into().unwrap(),
             };
 
             State::Running
@@ -65,27 +65,27 @@ impl Program {
     }
 }
 
-fn op(input: &str) -> IResult<&str, (Op, i32)> {
+fn op(input: &str) -> IResult<&str, Op> {
     let (input, op) = alpha1(input)?;
     let (input, _) = tag(" ")(input)?;
     let (input, arg) = map_res(recognize(tuple((one_of("+-"), digit1))), str::parse)(input)?;
 
     let op = match op {
-        "nop" => Op::Nop,
-        "acc" => Op::Acc,
-        "jmp" => Op::Jmp,
+        "nop" => Op::Nop(arg),
+        "acc" => Op::Acc(arg),
+        "jmp" => Op::Jmp(arg),
         _ => panic!(),
     };
 
-    Ok((input, (op, arg)))
+    Ok((input, op))
 }
 
-fn parse_program(input: &str) -> IResult<&str, Vec<(Op, i32)>> {
+fn parse_program(input: &str) -> IResult<&str, Vec<Op>> {
     separated_list1(tag("\n"), op)(input)
 }
 
 #[aoc_generator(day8)]
-fn parse_input(input: &str) -> Result<Vec<(Op, i32)>, Error<String>> {
+fn parse_input(input: &str) -> Result<Vec<Op>, Error<String>> {
     match all_consuming(parse_program)(input).finish() {
         Ok((_, output)) => Ok(output),
         Err(Error { input, code }) => Err(Error {
@@ -96,12 +96,12 @@ fn parse_input(input: &str) -> Result<Vec<(Op, i32)>, Error<String>> {
 }
 
 #[aoc(day8, part1)]
-fn part1(data: &[(Op, i32)]) -> Option<i32> {
-    let mut prog = Program::new(data.to_vec());
+fn part1(data: &[Op]) -> Option<i32> {
+    let mut machine = Machine::new(data.to_vec());
 
     loop {
-        match prog.step() {
-            State::Blocked => break Some(prog.acc),
+        match machine.step() {
+            State::Blocked => break Some(machine.acc),
             State::Halted => break None,
             _ => {}
         }
@@ -109,41 +109,31 @@ fn part1(data: &[(Op, i32)]) -> Option<i32> {
 }
 
 #[aoc(day8, part2)]
-fn part2(data: &[(Op, i32)]) -> Option<i32> {
+fn part2(data: &[Op]) -> Option<i32> {
     data.iter()
         .enumerate()
-        .filter_map(|(idx, (op, arg))| {
+        .filter_map(|(idx, op)| {
             let replacement = match op {
-                Op::Nop => Some(Op::Jmp),
-                Op::Jmp => Some(Op::Nop),
+                Op::Nop(arg) => Some(Op::Jmp(*arg)),
+                Op::Jmp(arg) => Some(Op::Nop(*arg)),
                 _ => None,
             };
 
             replacement.map(|op| {
-                let mut new_prog = data.to_vec();
-                new_prog[idx] = (op, *arg);
-                new_prog
+                let mut new_program = data.to_vec();
+                new_program[idx] = op;
+                new_program
             })
         })
         .find_map(|data| {
-            let mut prog = Program::new(data);
+            let mut machine = Machine::new(data);
 
             loop {
-                match prog.step() {
+                match machine.step() {
                     State::Blocked => break None,
-                    State::Halted => break Some(prog.acc),
+                    State::Halted => break Some(machine.acc),
                     _ => {}
                 }
             }
         })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn can_parse_description() {
-        assert_eq!(op("nop +0"), Ok(("", ("nop".to_string(), 0))));
-    }
 }
