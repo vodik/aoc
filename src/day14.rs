@@ -1,13 +1,12 @@
+use crate::parsers::number;
 use itertools::Itertools;
-use nom::branch::alt;
-use nom::bytes::complete::take_while_m_n;
-use nom::combinator::map;
 use nom::{
-    bytes::complete::tag,
-    character::complete::digit1,
-    combinator::{all_consuming, map_res},
+    branch::alt,
+    bytes::complete::{tag, take_while_m_n},
+    combinator::{all_consuming, map},
     error::Error,
     multi::separated_list1,
+    sequence::{delimited, preceded, separated_pair},
     Finish, IResult,
 };
 use std::collections::HashMap;
@@ -23,19 +22,17 @@ fn is_mask(c: char) -> bool {
 }
 
 fn parse_mask(input: &str) -> IResult<&str, Op> {
-    let (input, _) = tag("mask = ")(input)?;
-    map(take_while_m_n(36, 36, is_mask), |s: &str| {
-        Op::SetMask(s.to_string())
-    })(input)
+    map(
+        preceded(tag("mask = "), take_while_m_n(36, 36, is_mask)),
+        |s: &str| Op::SetMask(s.to_string()),
+    )(input)
 }
 
 fn parse_write(input: &str) -> IResult<&str, Op> {
-    let (input, _) = tag("mem[")(input)?;
-    let (input, addr) = map_res(digit1, str::parse)(input)?;
-    let (input, _) = tag("] = ")(input)?;
-    let (input, value) = map_res(digit1, str::parse)(input)?;
-
-    Ok((input, Op::Write(addr, value)))
+    map(
+        separated_pair(delimited(tag("mem["), number, tag("]")), tag(" = "), number),
+        |(addr, value)| Op::Write(addr, value),
+    )(input)
 }
 
 fn parse_program(input: &str) -> IResult<&str, Vec<Op>> {

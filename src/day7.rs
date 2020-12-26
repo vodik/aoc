@@ -1,43 +1,45 @@
+use crate::parsers::number;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{alpha1, digit1},
-    combinator::{all_consuming, map, map_res, opt, recognize},
+    character::complete::alpha1,
+    combinator::{all_consuming, map, opt, recognize},
     error::Error,
     multi::separated_list1,
-    sequence::separated_pair,
+    sequence::{separated_pair, terminated},
     Finish, IResult,
 };
 use std::collections::HashSet;
 
 type Node = (String, Vec<(u64, String)>);
 
-fn description(input: &str) -> IResult<&str, String> {
-    let (input, desc) = recognize(separated_pair(alpha1, tag(" "), alpha1))(input)?;
-    let (input, _) = tag(" bag")(input)?;
-    let (input, _) = opt(tag("s"))(input)?;
-
-    Ok((input, desc.to_string()))
+fn parse_bag(input: &str) -> IResult<&str, String> {
+    map(
+        terminated(
+            recognize(separated_pair(alpha1, tag(" "), alpha1)),
+            terminated(tag(" bag"), opt(tag("s"))),
+        ),
+        |s: &str| s.to_string(),
+    )(input)
 }
 
-fn target(input: &str) -> IResult<&str, (u64, String)> {
-    let (input, count) = map_res(digit1, str::parse::<u64>)(input)?;
-    let (input, _) = tag(" ")(input)?;
-    let (input, desc) = description(input)?;
+fn parse_bag_count(input: &str) -> IResult<&str, (u64, String)> {
+    separated_pair(number, tag(" "), parse_bag)(input)
+}
 
-    Ok((input, (count, desc)))
+fn parse_bag_set(input: &str) -> IResult<&str, Vec<(u64, String)>> {
+    alt((
+        map(tag("no other bags"), |_| Default::default()),
+        separated_list1(tag(", "), parse_bag_count),
+    ))(input)
 }
 
 fn rule(input: &str) -> IResult<&str, (String, Vec<(u64, String)>)> {
-    let (input, desc) = description(input)?;
-    let (input, _) = tag(" contain ")(input)?;
-    let (input, targets) = alt((
-        map(tag("no other bags"), |_| Vec::new()),
-        separated_list1(tag(", "), target),
-    ))(input)?;
-    let (input, _) = tag(".")(input)?;
-
-    Ok((input, (desc, targets)))
+    separated_pair(
+        parse_bag,
+        tag(" contain "),
+        terminated(parse_bag_set, tag(".")),
+    )(input)
 }
 
 fn parse_rules(input: &str) -> IResult<&str, Vec<(String, Vec<(u64, String)>)>> {

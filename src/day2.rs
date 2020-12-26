@@ -1,3 +1,4 @@
+use crate::parsers::range;
 use nom::{
     bytes::complete::tag,
     character::complete::{alphanumeric1, satisfy},
@@ -19,10 +20,6 @@ impl Rule {
     fn as_range(&self) -> RangeInclusive<usize> {
         self.args.0..=self.args.1
     }
-}
-
-fn number(input: &str) -> IResult<&str, usize> {
-    map_res(recognize(digit1), str::parse)(input)
 }
 
 fn parse_rule(input: &str) -> IResult<&str, Rule> {

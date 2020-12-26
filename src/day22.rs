@@ -1,26 +1,24 @@
+use crate::parsers::number;
 use nom::{
     bytes::complete::tag,
     character::complete::digit1,
-    combinator::{all_consuming, map_res},
+    combinator::all_consuming,
     error::Error,
     multi::separated_list1,
-    sequence::{delimited, separated_pair},
+    sequence::{delimited, preceded, separated_pair},
     Finish, IResult,
 };
 use std::cmp::Ordering;
 use std::collections::{hash_map::DefaultHasher, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
-use std::str::FromStr;
 
 type Game = (Vec<u32>, Vec<u32>);
 
-fn number(input: &str) -> IResult<&str, u32> {
-    map_res(digit1, FromStr::from_str)(input)
-}
-
 fn player(input: &str) -> IResult<&str, Vec<u32>> {
-    let (input, _) = delimited(tag("Player "), digit1, tag(":\n"))(input)?;
-    separated_list1(tag("\n"), number)(input)
+    preceded(
+        delimited(tag("Player "), digit1, tag(":\n")),
+        separated_list1(tag("\n"), number),
+    )(input)
 }
 
 fn parse_game(input: &str) -> IResult<&str, Game> {

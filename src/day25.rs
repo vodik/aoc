@@ -1,25 +1,18 @@
+use crate::parsers::number;
 use itertools::unfold;
 use nom::{
-    bytes::complete::tag,
-    character::complete::digit1,
-    combinator::{all_consuming, map_res},
-    error::Error,
-    sequence::separated_pair,
+    bytes::complete::tag, combinator::all_consuming, error::Error, sequence::separated_pair,
     Finish, IResult,
 };
-use std::str::FromStr;
 
-fn number(input: &str) -> IResult<&str, u64> {
-    map_res(digit1, FromStr::from_str)(input)
-}
 
-fn parse_numbers(input: &str) -> IResult<&str, (u64, u64)> {
+fn parse_keys(input: &str) -> IResult<&str, (u64, u64)> {
     separated_pair(number, tag("\n"), number)(input)
 }
 
 #[aoc_generator(day25)]
 fn parse_input(input: &str) -> Result<(u64, u64), Error<String>> {
-    match all_consuming(parse_numbers)(input).finish() {
+    match all_consuming(parse_keys)(input).finish() {
         Ok((_, output)) => Ok(output),
         Err(Error { input, code }) => Err(Error {
             input: input.to_string(),

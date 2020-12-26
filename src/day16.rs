@@ -1,14 +1,17 @@
+use crate::parsers::{number, range};
 use nom::{
-    branch::alt,
     bytes::complete::tag,
-    character::complete::{alpha1, digit1},
-    combinator::{all_consuming, map_res, recognize},
+    character::complete::satisfy,
+    combinator::{all_consuming, recognize},
     error::Error,
     multi::{many1, separated_list1},
+    sequence::separated_pair,
     Finish, IResult,
 };
 use std::collections::{HashMap, HashSet};
 use std::ops::RangeInclusive;
+
+type Document = (Vec<Rule>, Vec<u32>, Vec<Vec<u32>>);
 
 #[derive(Debug)]
 struct Rule {
@@ -27,24 +30,12 @@ impl Rule {
     }
 }
 
-#[derive(Debug)]
-struct Document {
-    rules: Vec<Rule>,
-    ticket: Vec<u32>,
-    neighbours: Vec<Vec<u32>>,
-}
-
 fn parse_rule(input: &str) -> IResult<&str, Rule> {
-    let (input, name) = recognize(many1(alt((alpha1, tag(" ")))))(input)?;
+    let (input, name) = recognize(many1(satisfy(|c| c.is_alphabetic() || c == ' ')))(input)?;
     let (input, _) = tag(": ")(input)?;
-    let (input, start1) = map_res(digit1, str::parse)(input)?;
-    let (input, _) = tag("-")(input)?;
-    let (input, end1) = map_res(digit1, str::parse)(input)?;
-    let (input, _) = tag(" or ")(input)?;
-    let (input, start2) = map_res(digit1, str::parse)(input)?;
-    let (input, _) = tag("-")(input)?;
-    let (input, end2) = map_res(digit1, str::parse)(input)?;
+    let (input, ranges) = separated_pair(range, tag(" or "), range)(input)?;
 
+    let ((start1, end1), (start2, end2)) = ranges;
     Ok((
         input,
         Rule {
@@ -60,7 +51,7 @@ fn parse_rules(input: &str) -> IResult<&str, Vec<Rule>> {
 }
 
 fn parse_ticket(input: &str) -> IResult<&str, Vec<u32>> {
-    separated_list1(tag(","), map_res(digit1, str::parse))(input)
+    separated_list1(tag(","), number)(input)
 }
 
 fn parse_data(input: &str) -> IResult<&str, Document> {
@@ -70,14 +61,7 @@ fn parse_data(input: &str) -> IResult<&str, Document> {
     let (input, _) = tag("\n\nnearby tickets:\n")(input)?;
     let (input, neighbours) = separated_list1(tag("\n"), parse_ticket)(input)?;
 
-    Ok((
-        input,
-        Document {
-            rules,
-            ticket,
-            neighbours,
-        },
-    ))
+    Ok((input, (rules, ticket, neighbours)))
 }
 
 #[aoc_generator(day16)]
@@ -92,29 +76,26 @@ fn parse_input(input: &str) -> Result<Document, Error<String>> {
 }
 
 #[aoc(day16, part1)]
-fn part1(data: &Document) -> u32 {
-    let valid = data
-        .rules
+fn part1((rules, _, neighbours): &Document) -> u32 {
+    let valid = rules
         .iter()
         .flat_map(|rule| rule.iter_range())
         .collect::<HashSet<_>>();
 
-    data.neighbours
+    neighbours
         .iter()
         .flat_map(|ticket| ticket.iter().filter(|field| !valid.contains(field)))
         .sum()
 }
 
 #[aoc(day16, part2)]
-fn part2(data: &Document) -> u64 {
-    let valid = data
-        .rules
+fn part2((rules, ticket, neighbours): &Document) -> u64 {
+    let valid = rules
         .iter()
         .flat_map(|rule| rule.iter_range())
         .collect::<HashSet<_>>();
 
-    let valid_neighbours = data
-        .neighbours
+    let valid_neighbours = neighbours
         .iter()
         .filter(|ticket| ticket.iter().all(|field| valid.contains(field)))
         .collect::<Vec<_>>();
@@ -131,7 +112,7 @@ fn part2(data: &Document) -> u64 {
         }
     }
 
-    for rule in &data.rules {
+    for rule in rules {
         for (idx, fieldset) in fields.iter().enumerate() {
             if fieldset.iter().all(|value| rule.contains(value)) {
                 possibilities
@@ -171,6 +152,6 @@ fn part2(data: &Document) -> u64 {
                 None
             }
         })
-        .map(|idx| data.ticket[idx] as u64)
+        .map(|idx| ticket[idx] as u64)
         .product()
 }

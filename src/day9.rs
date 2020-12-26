@@ -1,3 +1,4 @@
+use crate::iter::tails;
 use std::cmp::Ordering;
 use std::num::ParseIntError;
 
@@ -6,16 +7,6 @@ const PREAMBLE_LEN: usize = 25;
 #[aoc_generator(day9)]
 fn parse_input(input: &str) -> Result<Vec<u64>, ParseIntError> {
     input.lines().map(str::parse).collect()
-}
-
-fn tails<T>(data: &[T]) -> impl Iterator<Item = (&T, &[T])> + '_ {
-    data.iter()
-        .enumerate()
-        .map(move |(idx, v)| (v, &data[idx + 1..]))
-}
-
-fn slices<T>(data: &[T]) -> impl Iterator<Item = &[T]> + '_ {
-    data.iter().enumerate().map(move |(idx, _)| &data[idx..])
 }
 
 #[aoc(day9, part1)]
@@ -32,6 +23,10 @@ fn part1(data: &[u64]) -> Option<u64> {
             Some(target)
         }
     })
+}
+
+pub fn slices<T>(data: &[T]) -> impl Iterator<Item = &[T]> + '_ {
+    data.iter().enumerate().map(move |(idx, _)| &data[idx..])
 }
 
 #[aoc(day9, part2)]

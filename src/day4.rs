@@ -1,10 +1,12 @@
+use crate::parsers::number;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while_m_n},
-    character::complete::{alphanumeric1, digit1, one_of},
+    character::complete::{alphanumeric1, one_of, satisfy},
     combinator::{all_consuming, map, map_res, recognize},
     error::Error,
     multi::{many1, separated_list1},
+    sequence::separated_pair,
     Finish, IResult,
 };
 use std::collections::HashMap;
@@ -17,7 +19,7 @@ enum Measurement {
 }
 
 fn parse_measurement(input: &str) -> IResult<&str, Measurement> {
-    let (input, value) = map_res(digit1, str::parse)(input)?;
+    let (input, value) = number(input)?;
     alt((
         map(tag("cm"), move |_| Measurement::Metric(value)),
         map(tag("in"), move |_| Measurement::Imperial(value)),
@@ -190,17 +192,20 @@ impl Passport {
 }
 
 fn parse_field(input: &str) -> IResult<&str, (String, String)> {
-    let (input, field) = alphanumeric1(input)?;
-    let (input, _) = tag(":")(input)?;
-    let (input, value) = recognize(many1(alt((alphanumeric1, tag("#")))))(input)?;
-
-    Ok((input, (field.to_string(), value.to_string())))
+    map(
+        separated_pair(
+            alphanumeric1,
+            tag(":"),
+            recognize(many1(satisfy(|c| c.is_alphanumeric() || c == '#'))),
+        ),
+        |(field, value): (&str, &str)| (field.to_string(), value.to_string()),
+    )(input)
 }
 
 fn parse_passport(input: &str) -> IResult<&str, Passport> {
-    let (input, pairs) = separated_list1(one_of(" \n"), parse_field)(input)?;
-
-    Ok((input, Passport(pairs.into_iter().collect())))
+    map(separated_list1(one_of(" \n"), parse_field), |pairs| {
+        Passport(pairs.into_iter().collect())
+    })(input)
 }
 
 fn parse_passports(input: &str) -> IResult<&str, Vec<Passport>> {

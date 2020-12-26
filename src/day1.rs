@@ -1,3 +1,4 @@
+use crate::iter::tails;
 use std::collections::HashSet;
 use std::num::ParseIntError;
 
@@ -9,12 +10,6 @@ fn parse_input(input: &str) -> Result<Vec<u32>, ParseIntError> {
 #[aoc_generator(day1, part1, HashSet)]
 fn parse_input_hashed(input: &str) -> Result<HashSet<u32>, ParseIntError> {
     input.lines().map(str::parse).collect()
-}
-
-fn tails<T>(data: &[T]) -> impl Iterator<Item = (&T, &[T])> + '_ {
-    data.iter()
-        .enumerate()
-        .map(move |(idx, v)| (v, &data[idx + 1..]))
 }
 
 #[aoc(day1, part1)]
