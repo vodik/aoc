@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::num::ParseIntError;
 
 #[aoc_generator(day10)]
@@ -24,41 +24,28 @@ fn part1_alt(data: &[u64]) -> usize {
             1 => jolt1 += 1,
             2 => {}
             3 => jolt3 += 1,
-            _ => panic!(),
+            _ => panic!("Gap in ratings larger than 3"),
         }
     }
 
     jolt1 * jolt3
 }
 
-fn arrange(data: &[u64], idx: usize, cache: &mut HashMap<usize, usize>) -> usize {
-    if let Some(hit) = cache.get(&idx) {
-        return *hit;
-    }
-
-    if let Some(j1) = data.get(idx) {
-        let mut result = arrange(data, idx + 1, cache);
-
-        if let Some(j2) = data.get(idx + 2) {
-            if *j2 - *j1 <= 3 {
-                result += arrange(data, idx + 2, cache);
-
-                if let Some(j3) = data.get(idx + 3) {
-                    if *j3 - *j1 <= 3 {
-                        result += arrange(data, idx + 3, cache);
-                    }
-                }
-            }
-        }
-
-        cache.insert(idx, result);
-        result
-    } else {
-        1
-    }
-}
-
 #[aoc(day10, part2)]
-fn part2(data: &[u64]) -> usize {
-    arrange(&data, 0, &mut Default::default())
+fn part2_dynamic(data: &[u64]) -> u64 {
+    let adapters: HashSet<u64> = data.iter().copied().collect();
+
+    let max = *data.last().unwrap() as usize;
+    let mut combinations: Vec<u64> = vec![0; max as usize + 2];
+    combinations[max] = 1;
+
+    for idx in (0..max).rev() {
+        if adapters.contains(&(idx as u64)) {
+            combinations[idx] += combinations[idx + 1];
+            combinations[idx] += combinations[idx + 2];
+            combinations[idx] += combinations[idx + 3];
+        }
+    }
+
+    combinations[0]
 }
