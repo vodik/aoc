@@ -1,5 +1,4 @@
 use crate::parsers::number;
-use itertools::Itertools;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while_m_n},
@@ -51,68 +50,84 @@ fn parse_input(input: &str) -> Result<Vec<Op>, Error<String>> {
 }
 
 struct DecoderV1 {
-    clear_mask: u64,
-    set_mask: u64,
+    zeros_mask: u64,
+    one_mask: u64,
 }
 
 impl DecoderV1 {
     fn new(input: &str) -> Self {
-        let clear_mask = input
+        let zeros_mask = input
             .chars()
             .fold(0, |acc, c| acc << 1 | if c != '0' { 1 } else { 0 });
 
-        let set_mask = input
+        let one_mask = input
             .chars()
             .fold(0, |acc, c| acc << 1 | if c == '1' { 1 } else { 0 });
 
         Self {
-            clear_mask,
-            set_mask,
+            zeros_mask,
+            one_mask,
         }
     }
+
     fn decode(&self, value: u64) -> u64 {
-        value & self.clear_mask | self.set_mask
+        value & self.zeros_mask | self.one_mask
     }
 }
 
 struct DecoderV2 {
-    clear_mask: u64,
-    set_masks: Vec<u64>,
+    zeros_mask: u64,
+    one_mask: u64,
+    float_masks: Vec<u64>,
+}
+
+fn floating(input: &str) -> Vec<u64> {
+    let ops = input
+        .chars()
+        .rev()
+        .enumerate()
+        .filter_map(|(idx, c)| if c == 'X' { Some(idx) } else { None })
+        .enumerate()
+        .collect::<Vec<_>>();
+
+    let (max_bits, _) = ops.last().unwrap();
+    let max_value = 1 << (max_bits + 1);
+
+    (0..max_value)
+        .map(|base| {
+            ops.iter().fold(0, |acc, (mask, offset)| {
+                let bit = base & 1 << mask;
+                let shift = offset - mask;
+                acc | bit << shift
+            })
+        })
+        .collect()
 }
 
 impl DecoderV2 {
     fn new(input: &str) -> Self {
-        let clear_mask = input
+        let zeros_mask = input
             .chars()
             .fold(0, |acc, c| acc << 1 | if c != 'X' { 1 } else { 0 });
 
-        let set_mask = input
+        let one_mask = input
             .chars()
             .fold(0, |acc, c| acc << 1 | if c == '1' { 1 } else { 0 });
 
-        let floats = input
-            .chars()
-            .enumerate()
-            .filter(|(_, c)| *c == 'X')
-            .map(|(idx, _)| 1u64 << (input.len() - idx - 1))
-            .collect::<Vec<_>>();
-
-        let mut set_masks = vec![set_mask];
-        for size in 1..=floats.len() {
-            for combination in floats.iter().combinations(size) {
-                set_masks.push(combination.iter().fold(set_mask, |mask, &&x| mask | x));
-            }
-        }
+        let float_masks = floating(input);
 
         Self {
-            clear_mask,
-            set_masks,
+            zeros_mask,
+            one_mask,
+            float_masks,
         }
     }
 
     fn decode(&self, value: u64) -> impl Iterator<Item = u64> + '_ {
-        let base = value & self.clear_mask;
-        self.set_masks.iter().map(move |mask| base | mask)
+        let base = value & self.zeros_mask | self.one_mask;
+        self.float_masks
+            .iter()
+            .map(move |float_mask| base | float_mask)
     }
 }
 
@@ -125,7 +140,8 @@ fn part1(data: &[Op]) -> u64 {
         match op {
             Op::SetMask(mask) => decoder = Some(DecoderV1::new(mask)),
             Op::Write(addr, value) => {
-                memory.insert(*addr, decoder.as_ref().unwrap().decode(*value));
+                let decoder = decoder.as_ref().expect("No decoded has been set");
+                memory.insert(*addr, decoder.decode(*value));
             }
         }
     }
@@ -142,7 +158,8 @@ fn part2(data: &[Op]) -> u64 {
         match op {
             Op::SetMask(mask) => decoder = Some(DecoderV2::new(mask)),
             Op::Write(addr, value) => {
-                for addr in decoder.as_ref().unwrap().decode(*addr) {
+                let decoder = decoder.as_ref().expect("No decoded has been set");
+                for addr in decoder.decode(*addr) {
                     memory.insert(addr, *value);
                 }
             }
