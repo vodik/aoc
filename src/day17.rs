@@ -42,7 +42,7 @@ fn parse_grid(input: &str) -> Grid {
 
 #[aoc(day17, part1)]
 fn part1(grid: &Grid) -> usize {
-    let mut board = grid
+    let board = grid
         .cells
         .iter()
         .enumerate()
@@ -57,18 +57,14 @@ fn part1(grid: &Grid) -> usize {
                 None
             }
         })
-        .collect::<conway::Board<_>>();
+        .collect();
 
-    for _ in 0..6 {
-        board = board.next_generation();
-    }
-
-    board.alive_count()
+    conway::game_of_life(board, 6).alive_count()
 }
 
 #[aoc(day17, part2)]
 fn part2(grid: &Grid) -> usize {
-    let mut board = grid
+    let board = grid
         .cells
         .iter()
         .enumerate()
@@ -84,11 +80,7 @@ fn part2(grid: &Grid) -> usize {
                 None
             }
         })
-        .collect::<conway::Board<_>>();
+        .collect();
 
-    for _ in 0..6 {
-        board = board.next_generation();
-    }
-
-    board.alive_count()
+    conway::game_of_life(board, 6).alive_count()
 }

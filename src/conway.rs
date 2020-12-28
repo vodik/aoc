@@ -106,6 +106,16 @@ impl<Cell: Neighbors + Eq + Hash> Board<Cell> {
     }
 }
 
+pub fn game_of_life<Cell: Neighbors + Eq + Hash>(
+    mut board: Board<Cell>,
+    iterations: usize,
+) -> Board<Cell> {
+    for _ in 0..iterations {
+        board = board.next_generation();
+    }
+    board
+}
+
 impl fmt::Display for Board<(i32, i32)> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let scan_x = self.0.iter().map(|(x, _)| x);

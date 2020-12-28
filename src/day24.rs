@@ -129,7 +129,7 @@ impl Neighbors for Axial {
 
 #[aoc(day24, part2)]
 fn part2(data: &[Vec<Direction>]) -> usize {
-    let mut board = lay_tiles(data)
+    let board = lay_tiles(data)
         .into_iter()
         .filter_map(|(point, tile)| {
             if tile == Tile::Black {
@@ -138,11 +138,7 @@ fn part2(data: &[Vec<Direction>]) -> usize {
                 None
             }
         })
-        .collect::<conway::Board<_>>();
+        .collect();
 
-    for _ in 0..100 {
-        board = board.next_generation();
-    }
-
-    board.alive_count()
+    conway::game_of_life(board, 100).alive_count()
 }
