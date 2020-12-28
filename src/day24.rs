@@ -1,3 +1,4 @@
+use crate::conway::{self, Neighbors};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -7,7 +8,6 @@ use nom::{
     Finish, IResult,
 };
 use std::collections::HashMap;
-use std::convert::TryFrom;
 
 #[derive(Debug, PartialEq, Eq)]
 enum Direction {
@@ -17,13 +17,6 @@ enum Direction {
     West,
     NorthWest,
     NorthEast,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct Point {
-    x: i32,
-    y: i32,
-    z: i32,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Hash)]
@@ -47,12 +40,19 @@ impl Default for Tile {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+struct Point {
+    x: i32,
+    y: i32,
+    z: i32,
+}
+
 impl Point {
     fn new(x: i32, y: i32, z: i32) -> Self {
         Self { x, y, z }
     }
 
-    fn step(&mut self, direction: &Direction) {
+    fn step(&mut self, direction: &Direction) -> &Self {
         match direction {
             Direction::East => {
                 self.x += 1;
@@ -79,6 +79,7 @@ impl Point {
                 self.z -= 1;
             }
         }
+        self
     }
 }
 
@@ -114,8 +115,7 @@ fn parse_input(input: &str) -> Result<Vec<Vec<Direction>>, Error<String>> {
     }
 }
 
-#[aoc(day24, part1)]
-fn part1(data: &[Vec<Direction>]) -> usize {
+fn lay_tiles(data: &[Vec<Direction>]) -> HashMap<Point, Tile> {
     let mut map: HashMap<Point, Tile> = HashMap::new();
 
     for instruction in data {
@@ -127,114 +127,63 @@ fn part1(data: &[Vec<Direction>]) -> usize {
         map.entry(point).or_default().flip();
     }
 
-    map.values().filter(|&tile| tile == &Tile::Black).count()
+    map
 }
 
-#[derive(Debug, Clone, Hash)]
-struct Grid {
-    width: i32,
-    cells: Vec<Tile>,
+#[aoc(day24, part1)]
+fn part1(data: &[Vec<Direction>]) -> usize {
+    lay_tiles(data)
+        .into_values()
+        .filter(|&tile| tile == Tile::Black)
+        .count()
 }
 
-impl Grid {
-    fn new(cells: Vec<Tile>, width: i32) -> Self {
-        Grid { cells, width }
-    }
+impl Neighbors for Point {
+    fn neighbours(&self) -> Vec<Self> {
+        let mut neighbours = Vec::with_capacity(6);
 
-    fn get_index(&self, x: i32, y: i32, z: i32) -> usize {
-        usize::try_from(z * self.width * self.width + y * self.width + x).unwrap()
-    }
-
-    fn neighbour_count(&self, x: i32, y: i32, z: i32) -> u8 {
-        let mut count = 0;
-        for x_delta in [-1, 0, 1].iter().cloned() {
-            for y_delta in [-1, 0, 1].iter().cloned() {
-                for z_delta in [-1, 0, 1].iter().cloned() {
-                    if x_delta == 0 && y_delta == 0 && z_delta == 0 {
-                        continue;
-                    }
-                    if x_delta + y_delta + z_delta != 0 {
+        for &x_delta in &[-1, 0, 1] {
+            for &y_delta in &[-1, 0, 1] {
+                for &z_delta in &[-1, 0, 1] {
+                    if (x_delta == 0 && y_delta == 0 && z_delta == 0)
+                        || (x_delta + y_delta + z_delta != 0)
+                    {
                         continue;
                     }
 
-                    let neighbour_x = x + x_delta;
-                    if !(0..self.width).contains(&neighbour_x) {
-                        continue;
-                    }
-
-                    let neighbour_y = y + y_delta;
-                    if !(0..self.width).contains(&neighbour_y) {
-                        continue;
-                    }
-
-                    let neighbour_z = z + z_delta;
-                    if !(0..self.width).contains(&neighbour_z) {
-                        continue;
-                    }
-
-                    let idx = self.get_index(neighbour_x, neighbour_y, neighbour_z);
-                    if self.cells[idx] == Tile::Black {
-                        count += 1;
-                    }
-                }
-            }
-        }
-        count
-    }
-
-    fn tick(&mut self) {
-        let mut next: Vec<Tile> = self.cells.clone();
-
-        for x in 0..self.width {
-            for y in 0..self.width {
-                for z in 0..self.width {
-                    let idx = self.get_index(x, y, z);
-                    let cell = self.cells[idx];
-                    let neighbors = self.neighbour_count(x, y, z);
-
-                    let next_cell = match (cell, neighbors) {
-                        (Tile::White, 2) => Tile::Black,
-                        (Tile::Black, x) if x == 0 || x > 2 => Tile::White,
-                        (otherwise, _) => otherwise,
-                    };
-
-                    next[idx] = next_cell;
+                    neighbours.push(Point::new(
+                        self.x + x_delta,
+                        self.y + y_delta,
+                        self.z + z_delta,
+                    ));
                 }
             }
         }
 
-        self.cells = next;
+        neighbours
+    }
+
+    fn activate(active: bool, neighbours: usize) -> bool {
+        matches!((active, neighbours), (true, 1) | (true, 2) | (false, 2))
     }
 }
 
 #[aoc(day24, part2)]
 fn part2(data: &[Vec<Direction>]) -> usize {
-    let size = 140;
-    let mut map = vec![Tile::default(); size * size * size];
+    let mut board = lay_tiles(data)
+        .into_iter()
+        .filter_map(|(point, tile)| {
+            if tile == Tile::Black {
+                Some(point)
+            } else {
+                None
+            }
+        })
+        .collect::<conway::Board<_>>();
 
-    // Build initial grid
-    for instruction in data {
-        let mut point = Point::new(70, 70, 70);
-        for step in instruction {
-            point.step(&step);
-        }
-
-        map.get_mut(
-            usize::try_from(point.z).unwrap() * size * size
-                + usize::try_from(point.y).unwrap() * size
-                + usize::try_from(point.x).unwrap(),
-        )
-        .unwrap()
-        .flip();
-    }
-
-    let mut grid = Grid::new(map, i32::try_from(size).unwrap());
     for _ in 0..100 {
-        grid.tick();
+        board = board.next_generation();
     }
 
-    grid.cells
-        .iter()
-        .filter(|&tile| tile == &Tile::Black)
-        .count()
+    board.alive_count()
 }
