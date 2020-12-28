@@ -41,51 +41,25 @@ impl Default for Tile {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-struct Point {
-    x: i32,
-    y: i32,
-    z: i32,
-}
+struct Axial(i32, i32);
 
-impl Point {
-    fn new(x: i32, y: i32, z: i32) -> Self {
-        Self { x, y, z }
-    }
-
-    fn step(&mut self, direction: &Direction) -> &Self {
+impl Axial {
+    fn step(self, direction: &Direction) -> Self {
+        let Axial(q, r) = self;
         match direction {
-            Direction::East => {
-                self.x += 1;
-                self.y -= 1;
-            }
-            Direction::SouthEast => {
-                self.y -= 1;
-                self.z += 1;
-            }
-            Direction::SouthWest => {
-                self.x -= 1;
-                self.z += 1;
-            }
-            Direction::West => {
-                self.x -= 1;
-                self.y += 1;
-            }
-            Direction::NorthWest => {
-                self.y += 1;
-                self.z -= 1;
-            }
-            Direction::NorthEast => {
-                self.x += 1;
-                self.z -= 1;
-            }
+            Direction::East => Axial(q + 1, r),
+            Direction::SouthEast => Axial(q, r + 1),
+            Direction::SouthWest => Axial(q - 1, r + 1),
+            Direction::West => Axial(q - 1, r),
+            Direction::NorthWest => Axial(q, r - 1),
+            Direction::NorthEast => Axial(q + 1, r - 1),
         }
-        self
     }
 }
 
-impl Default for Point {
+impl Default for Axial {
     fn default() -> Self {
-        Self::new(0, 0, 0)
+        Self(0, 0)
     }
 }
 
@@ -115,15 +89,13 @@ fn parse_input(input: &str) -> Result<Vec<Vec<Direction>>, Error<String>> {
     }
 }
 
-fn lay_tiles(data: &[Vec<Direction>]) -> HashMap<Point, Tile> {
-    let mut map: HashMap<Point, Tile> = HashMap::new();
+fn lay_tiles(data: &[Vec<Direction>]) -> HashMap<Axial, Tile> {
+    let mut map: HashMap<Axial, Tile> = HashMap::new();
 
     for instruction in data {
-        let mut point = Point::default();
-        for step in instruction {
-            point.step(&step);
-        }
-
+        let point = instruction
+            .iter()
+            .fold(Axial::default(), |point, step| point.step(&step));
         map.entry(point).or_default().flip();
     }
 
@@ -138,29 +110,16 @@ fn part1(data: &[Vec<Direction>]) -> usize {
         .count()
 }
 
-impl Neighbors for Point {
+impl Neighbors for Axial {
     fn neighbours(&self) -> Vec<Self> {
-        let mut neighbours = Vec::with_capacity(6);
-
-        for &x_delta in &[-1, 0, 1] {
-            for &y_delta in &[-1, 0, 1] {
-                for &z_delta in &[-1, 0, 1] {
-                    if (x_delta == 0 && y_delta == 0 && z_delta == 0)
-                        || (x_delta + y_delta + z_delta != 0)
-                    {
-                        continue;
-                    }
-
-                    neighbours.push(Point::new(
-                        self.x + x_delta,
-                        self.y + y_delta,
-                        self.z + z_delta,
-                    ));
-                }
-            }
-        }
-
-        neighbours
+        vec![
+            self.step(&Direction::East),
+            self.step(&Direction::SouthEast),
+            self.step(&Direction::SouthWest),
+            self.step(&Direction::West),
+            self.step(&Direction::NorthWest),
+            self.step(&Direction::NorthEast),
+        ]
     }
 
     fn activate(active: bool, neighbours: usize) -> bool {
