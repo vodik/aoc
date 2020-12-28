@@ -51,7 +51,7 @@ fn parse_input(input: &str) -> Result<Vec<Op>, Error<String>> {
 
 struct DecoderV1 {
     zeros_mask: u64,
-    one_mask: u64,
+    ones_mask: u64,
 }
 
 impl DecoderV1 {
@@ -60,28 +60,28 @@ impl DecoderV1 {
             .chars()
             .fold(0, |acc, c| acc << 1 | if c != '0' { 1 } else { 0 });
 
-        let one_mask = input
+        let ones_mask = input
             .chars()
             .fold(0, |acc, c| acc << 1 | if c == '1' { 1 } else { 0 });
 
         Self {
             zeros_mask,
-            one_mask,
+            ones_mask,
         }
     }
 
     fn decode(&self, value: u64) -> u64 {
-        value & self.zeros_mask | self.one_mask
+        value & self.zeros_mask | self.ones_mask
     }
 }
 
 struct DecoderV2 {
     zeros_mask: u64,
-    one_mask: u64,
-    float_masks: Vec<u64>,
+    ones_mask: u64,
+    floating_masks: Vec<u64>,
 }
 
-fn floating(input: &str) -> Vec<u64> {
+fn floating_masks(input: &str) -> Vec<u64> {
     let ops = input
         .chars()
         .rev()
@@ -110,22 +110,20 @@ impl DecoderV2 {
             .chars()
             .fold(0, |acc, c| acc << 1 | if c != 'X' { 1 } else { 0 });
 
-        let one_mask = input
+        let ones_mask = input
             .chars()
             .fold(0, |acc, c| acc << 1 | if c == '1' { 1 } else { 0 });
 
-        let float_masks = floating(input);
-
         Self {
             zeros_mask,
-            one_mask,
-            float_masks,
+            ones_mask,
+            floating_masks: floating_masks(input),
         }
     }
 
     fn decode(&self, value: u64) -> impl Iterator<Item = u64> + '_ {
-        let base = value & self.zeros_mask | self.one_mask;
-        self.float_masks
+        let base = value & self.zeros_mask | self.ones_mask;
+        self.floating_masks
             .iter()
             .map(move |float_mask| base | float_mask)
     }
