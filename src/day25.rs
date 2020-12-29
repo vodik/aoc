@@ -1,5 +1,4 @@
 use crate::parsers::number;
-use itertools::unfold;
 use nom::{
     bytes::complete::tag, combinator::all_consuming, error::Error, sequence::separated_pair,
     Finish, IResult,
@@ -25,16 +24,28 @@ fn parse_input(input: &str) -> Result<(u64, u64), Error<String>> {
     }
 }
 
-fn transform(subject: u64) -> impl Iterator<Item = u64> {
-    let mut value = 1;
-    unfold((), move |_| {
-        value = (value % SHARED_MOD) * (subject % SHARED_MOD) % SHARED_MOD;
-        Some(value)
-    })
+struct Transform {
+    value: u64,
+    subject: u64,
+}
+
+impl Transform {
+    fn new(subject: u64) -> Self {
+        Self { value: 1, subject }
+    }
+}
+
+impl Iterator for Transform {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.value = (self.value % SHARED_MOD) * (self.subject % SHARED_MOD) % SHARED_MOD;
+        Some(self.value)
+    }
 }
 
 fn crack(target: u64, iterations: usize) -> Option<usize> {
-    transform(SHARED_BASE)
+    Transform::new(SHARED_BASE)
         .take(iterations)
         .enumerate()
         .find_map(|(count, value)| {
@@ -47,7 +58,7 @@ fn crack(target: u64, iterations: usize) -> Option<usize> {
 }
 
 #[aoc(day25, part1)]
-fn part1((card_key, door_key): &(u64, u64)) -> Option<u64> {
-    let loop_size = crack(*card_key, MAX_ITERATIONS).unwrap();
-    transform(*door_key).nth(loop_size - 1)
+fn part1(&(card_key, door_key): &(u64, u64)) -> Option<u64> {
+    let loop_size = crack(card_key, MAX_ITERATIONS).unwrap();
+    Transform::new(door_key).nth(loop_size - 1)
 }
