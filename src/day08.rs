@@ -1,10 +1,10 @@
 use nom::{
     bytes::complete::tag,
     character::complete::{alpha1, digit1, one_of},
-    combinator::{all_consuming, map_res, recognize},
+    combinator::{all_consuming, map, map_res, recognize},
     error::Error,
     multi::separated_list1,
-    sequence::tuple,
+    sequence::{separated_pair, tuple},
     Finish, IResult,
 };
 use std::{collections::HashSet, convert::TryInto};
@@ -65,18 +65,19 @@ impl Machine {
 }
 
 fn op(input: &str) -> IResult<&str, Op> {
-    let (input, op) = alpha1(input)?;
-    let (input, _) = tag(" ")(input)?;
-    let (input, arg) = map_res(recognize(tuple((one_of("+-"), digit1))), str::parse)(input)?;
-
-    let op = match op {
-        "nop" => Op::Nop(arg),
-        "acc" => Op::Acc(arg),
-        "jmp" => Op::Jmp(arg),
-        _ => panic!(),
-    };
-
-    Ok((input, op))
+    map(
+        separated_pair(
+            alpha1,
+            tag(" "),
+            map_res(recognize(tuple((one_of("+-"), digit1))), str::parse),
+        ),
+        |(op, arg)| match op {
+            "nop" => Op::Nop(arg),
+            "acc" => Op::Acc(arg),
+            "jmp" => Op::Jmp(arg),
+            _ => panic!(),
+        },
+    )(input)
 }
 
 fn parse_program(input: &str) -> IResult<&str, Vec<Op>> {
