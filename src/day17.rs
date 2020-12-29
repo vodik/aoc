@@ -1,4 +1,9 @@
-use crate::conway;
+use crate::{conway, parsers::grid};
+use nom::{
+    combinator::{all_consuming, map},
+    error::Error,
+    Finish, IResult,
+};
 use std::convert::TryFrom;
 
 #[derive(Debug, PartialEq, Clone, Copy, Hash)]
@@ -9,34 +14,33 @@ enum Cell {
 
 #[derive(Debug, Clone, Hash)]
 struct Grid {
-    width: usize,
     cells: Vec<Cell>,
+    width: usize,
+}
+
+fn parse_grid(input: &str) -> IResult<&str, Grid> {
+    map(grid("#."), |(grid, (width, _))| {
+        let cells = grid
+            .into_iter()
+            .map(|b| match b {
+                b'#' => Cell::Active,
+                b'.' => Cell::Inactive,
+                _ => unreachable!(),
+            })
+            .collect();
+
+        Grid { cells, width }
+    })(input)
 }
 
 #[aoc_generator(day17)]
-fn parse_grid(input: &str) -> Grid {
-    let mut width = None;
-
-    let cells = input
-        .lines()
-        .flat_map(|line| {
-            if let Some(width) = width {
-                assert_eq!(width, line.len())
-            } else {
-                width = Some(line.len());
-            }
-
-            line.chars().map(|c| match c {
-                '.' => Cell::Inactive,
-                '#' => Cell::Active,
-                _ => unreachable!(),
-            })
-        })
-        .collect::<Vec<_>>();
-
-    Grid {
-        cells,
-        width: width.unwrap(),
+fn parse_input(input: &str) -> Result<Grid, Error<String>> {
+    match all_consuming(parse_grid)(input).finish() {
+        Ok((_, output)) => Ok(output),
+        Err(Error { input, code }) => Err(Error {
+            input: input.to_string(),
+            code,
+        }),
     }
 }
 

@@ -1,6 +1,14 @@
-use std::collections::hash_map::DefaultHasher;
-use std::convert::TryInto;
-use std::hash::{Hash, Hasher};
+use crate::parsers::grid;
+use nom::{
+    combinator::{all_consuming, map},
+    error::Error,
+    Finish, IResult,
+};
+use std::{
+    collections::hash_map::DefaultHasher,
+    convert::TryInto,
+    hash::{Hash, Hasher},
+};
 
 #[derive(Debug, PartialEq, Clone, Copy, Hash)]
 enum Cell {
@@ -203,34 +211,34 @@ impl Grid {
     }
 }
 
-#[aoc_generator(day11)]
-fn parse_grid(input: &str) -> Grid {
-    let mut width = None;
-
-    let cells = input
-        .lines()
-        .flat_map(|line| {
-            if let Some(width) = width {
-                assert_eq!(width, line.len())
-            } else {
-                width = Some(line.len());
-            }
-
-            line.chars().map(|c| match c {
-                '.' => Cell::Floor,
-                'L' => Cell::Empty,
-                '#' => Cell::Occupied,
+fn parse_grid(input: &str) -> IResult<&str, Grid> {
+    map(grid("#L."), |(grid, (width, height))| {
+        let cells = grid
+            .into_iter()
+            .map(|b| match b {
+                b'.' => Cell::Floor,
+                b'L' => Cell::Empty,
+                b'#' => Cell::Occupied,
                 _ => unreachable!(),
             })
-        })
-        .collect::<Vec<_>>();
+            .collect();
 
-    let width = width.unwrap();
-    let height = cells.len() / width;
-    Grid {
-        cells,
-        width: width as i64,
-        height: height as i64,
+        Grid {
+            cells,
+            width: width as i64,
+            height: height as i64,
+        }
+    })(input)
+}
+
+#[aoc_generator(day11)]
+fn parse_input(input: &str) -> Result<Grid, Error<String>> {
+    match all_consuming(parse_grid)(input).finish() {
+        Ok((_, output)) => Ok(output),
+        Err(Error { input, code }) => Err(Error {
+            input: input.to_string(),
+            code,
+        }),
     }
 }
 

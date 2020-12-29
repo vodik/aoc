@@ -1,15 +1,13 @@
+use crate::parsers::{grid, number};
 use nom::{
-    bytes::complete::{tag, take_while_m_n},
-    character::complete::digit1,
-    combinator::{all_consuming, map, map_res},
+    bytes::complete::tag,
+    combinator::{all_consuming, map},
     error::Error,
     multi::separated_list1,
-    sequence::delimited,
+    sequence::{delimited, separated_pair},
     Finish, IResult,
 };
-use std::collections::HashMap;
-use std::convert::TryInto;
-use std::str::FromStr;
+use std::{collections::HashMap, convert::TryInto};
 
 #[derive(Debug, Clone)]
 struct Tile {
@@ -128,32 +126,19 @@ impl Transform {
     }
 }
 
-fn number(input: &str) -> IResult<&str, u32> {
-    map_res(digit1, FromStr::from_str)(input)
-}
-
-fn is_tile_char(c: char) -> bool {
-    c == '#' || c == '.'
-}
-
 fn tile(input: &str) -> IResult<&str, Tile> {
-    let (input, id) = delimited(tag("Tile "), number, tag(":\n"))(input)?;
-    let (input, data) = map_res(
-        separated_list1(
+    map(
+        separated_pair(
+            delimited(tag("Tile "), number, tag(":")),
             tag("\n"),
-            map(take_while_m_n(10, 10, is_tile_char), |s: &str| s.as_bytes()),
+            grid("#."),
         ),
-        |tiles| {
-            tiles
-                .into_iter()
-                .flatten()
-                .copied()
-                .collect::<Vec<_>>()
-                .try_into()
+        |(id, (grid, dim))| {
+            assert_eq!(dim, (10, 10));
+            let data = grid.try_into().unwrap();
+            Tile { id, data }
         },
-    )(input)?;
-
-    Ok((input, Tile { id, data }))
+    )(input)
 }
 
 fn parse_tiles(input: &str) -> IResult<&str, HashMap<u32, Tile>> {

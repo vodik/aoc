@@ -1,3 +1,10 @@
+use crate::parsers::grid;
+use nom::{
+    combinator::{all_consuming, map},
+    error::Error,
+    Finish, IResult,
+};
+
 #[derive(Debug, PartialEq)]
 enum Tile {
     Tree,
@@ -23,30 +30,29 @@ impl Map {
     }
 }
 
-#[aoc_generator(day3)]
-fn parse_map(input: &str) -> Map {
-    let mut width = None;
-
-    let tiles = input
-        .lines()
-        .flat_map(|line| {
-            if let Some(width) = width {
-                assert_eq!(width, line.len())
-            } else {
-                width = Some(line.len());
-            }
-
-            line.chars().map(|c| match c {
-                '#' => Tile::Tree,
-                '.' => Tile::Empty,
+fn parse_map(input: &str) -> IResult<&str, Map> {
+    map(grid("#."), |(grid, (width, _))| {
+        let tiles = grid
+            .into_iter()
+            .map(|b| match b {
+                b'#' => Tile::Tree,
+                b'.' => Tile::Empty,
                 _ => unreachable!(),
             })
-        })
-        .collect();
+            .collect();
 
-    Map {
-        tiles,
-        width: width.unwrap(),
+        Map { tiles, width }
+    })(input)
+}
+
+#[aoc_generator(day3)]
+fn parse_input(input: &str) -> Result<Map, Error<String>> {
+    match all_consuming(parse_map)(input).finish() {
+        Ok((_, output)) => Ok(output),
+        Err(Error { input, code }) => Err(Error {
+            input: input.to_string(),
+            code,
+        }),
     }
 }
 
