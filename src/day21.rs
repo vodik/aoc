@@ -7,9 +7,7 @@ use nom::{
     sequence::{delimited, separated_pair},
     Finish, IResult,
 };
-use std::collections::BTreeMap;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 struct Food {

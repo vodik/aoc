@@ -1,6 +1,5 @@
 use crate::iter::tails;
-use std::cmp::Ordering;
-use std::num::ParseIntError;
+use std::{cmp::Ordering, num::ParseIntError};
 
 const PREAMBLE_LEN: usize = 25;
 

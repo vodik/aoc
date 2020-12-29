@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::num::ParseIntError;
+use std::{collections::HashMap, num::ParseIntError};
 
 fn prev_cup(cup: u32, max: u32) -> u32 {
     if cup == 1 {

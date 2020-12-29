@@ -1,7 +1,9 @@
-use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::hash::Hash;
-use std::iter::FromIterator;
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+    hash::Hash,
+    iter::FromIterator,
+};
 
 pub trait Neighbors {
     fn neighbours(&self) -> Vec<Self>

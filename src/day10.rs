@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-use std::num::ParseIntError;
+use std::{collections::HashSet, num::ParseIntError};
 
 #[aoc_generator(day10)]
 fn parse_input(input: &str) -> Result<Vec<u64>, ParseIntError> {

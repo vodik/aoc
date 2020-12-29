@@ -8,9 +8,11 @@ use nom::{
     sequence::{delimited, preceded, separated_pair},
     Finish, IResult,
 };
-use std::cmp::Ordering;
-use std::collections::{hash_map::DefaultHasher, HashSet, VecDeque};
-use std::hash::{Hash, Hasher};
+use std::{
+    cmp::Ordering,
+    collections::{hash_map::DefaultHasher, HashSet, VecDeque},
+    hash::{Hash, Hasher},
+};
 
 type Game = (Vec<u32>, Vec<u32>);
 

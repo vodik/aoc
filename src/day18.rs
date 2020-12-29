@@ -1,9 +1,8 @@
 use crate::parsers::number;
-use nom::character::complete::one_of;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::space0,
+    character::complete::{one_of, space0},
     combinator::all_consuming,
     error::Error,
     multi::{fold_many0, separated_list1},

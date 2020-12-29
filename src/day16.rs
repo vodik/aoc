@@ -8,8 +8,10 @@ use nom::{
     sequence::separated_pair,
     Finish, IResult,
 };
-use std::collections::{HashMap, HashSet};
-use std::ops::RangeInclusive;
+use std::{
+    collections::{HashMap, HashSet},
+    ops::RangeInclusive,
+};
 
 type Document = (Vec<Rule>, Vec<u32>, Vec<Vec<u32>>);
 

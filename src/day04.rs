@@ -9,8 +9,7 @@ use nom::{
     sequence::separated_pair,
     Finish, IResult,
 };
-use std::collections::HashMap;
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Debug)]
 enum Measurement {

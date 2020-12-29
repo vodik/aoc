@@ -7,8 +7,7 @@ use nom::{
     sequence::tuple,
     Finish, IResult,
 };
-use std::collections::HashSet;
-use std::convert::TryInto;
+use std::{collections::HashSet, convert::TryInto};
 
 #[derive(Debug, Clone, Copy)]
 enum Op {

@@ -1,15 +1,15 @@
 use crate::parsers::number;
-use nom::character::complete::alpha1;
-use nom::character::complete::satisfy;
-use nom::combinator::map;
-use nom::sequence::separated_pair;
 use nom::{
-    branch::alt, bytes::complete::tag, combinator::all_consuming, error::Error,
-    multi::separated_list1, sequence::delimited, Finish, IResult,
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::{alpha1, satisfy},
+    combinator::{all_consuming, map},
+    error::Error,
+    multi::separated_list1,
+    sequence::{delimited, separated_pair},
+    Finish, IResult,
 };
-use std::collections::HashMap;
-use std::iter::Peekable;
-use std::str::Chars;
+use std::{collections::HashMap, iter::Peekable, str::Chars};
 
 #[derive(Debug, Clone)]
 enum Rule {

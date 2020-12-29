@@ -1,6 +1,5 @@
 use crate::iter::tails;
-use std::collections::HashSet;
-use std::num::ParseIntError;
+use std::{collections::HashSet, num::ParseIntError};
 
 #[aoc_generator(day1)]
 fn parse_input(input: &str) -> Result<Vec<u32>, ParseIntError> {
