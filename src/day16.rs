@@ -2,7 +2,7 @@ use crate::parsers::{number, range};
 use nom::{
     bytes::complete::tag,
     character::complete::satisfy,
-    combinator::{all_consuming, recognize},
+    combinator::{all_consuming, map, recognize},
     error::Error,
     multi::{many1, separated_list1},
     sequence::separated_pair,
@@ -33,19 +33,18 @@ impl Rule {
 }
 
 fn parse_rule(input: &str) -> IResult<&str, Rule> {
-    let (input, name) = recognize(many1(satisfy(|c| c.is_alphabetic() || c == ' ')))(input)?;
-    let (input, _) = tag(": ")(input)?;
-    let (input, ranges) = separated_pair(range, tag(" or "), range)(input)?;
-
-    let ((start1, end1), (start2, end2)) = ranges;
-    Ok((
-        input,
-        Rule {
+    map(
+        separated_pair(
+            recognize(many1(satisfy(|c| c.is_alphabetic() || c == ' '))),
+            tag(": "),
+            separated_pair(range, tag(" or "), range),
+        ),
+        |(name, ((start1, end1), (start2, end2)))| Rule {
             name: name.to_string(),
             range1: start1..=end1,
             range2: start2..=end2,
         },
-    ))
+    )(input)
 }
 
 fn parse_rules(input: &str) -> IResult<&str, Vec<Rule>> {
@@ -136,13 +135,13 @@ fn part2((rules, ticket, neighbours): &Document) -> u64 {
             break;
         }
 
-        for (key, value) in &unique {
+        for (key, value) in unique {
             for set in possibilities.values_mut() {
-                set.remove(value);
+                set.remove(&value);
             }
 
             if key.starts_with("departure") {
-                matches.push(*value);
+                matches.push(value);
             }
         }
     }
