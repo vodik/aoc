@@ -1,4 +1,4 @@
-use std::{collections::HashMap, num::ParseIntError};
+use std::num::ParseIntError;
 
 fn prev_cup(cup: u32, max: u32) -> u32 {
     if cup == 1 {
@@ -45,49 +45,59 @@ fn part1(data: &[u32]) -> String {
         .join("")
 }
 
+fn addr_to_cup(addr: usize) -> u32 {
+    addr as u32 + 1
+}
+
+fn cup_to_addr(cup: u32) -> usize {
+    (cup - 1) as usize
+}
+
 #[aoc(day23, part2)]
 fn part2(data: &[u32]) -> u64 {
     const MAX_CUP: u32 = 1_000_000;
 
-    let cups: Vec<u32> = data.iter().map(|&c| c as u32).chain(10..=MAX_CUP).collect();
+    let start_addr = cup_to_addr(*data.first().unwrap());
 
-    let map: HashMap<u32, usize> = cups
-        .iter()
-        .enumerate()
-        .map(|(idx, cup)| (*cup, idx))
-        .collect();
+    let mut cup_links = data
+        .windows(2)
+        .map(|window| (window[0], cup_to_addr(window[1])))
+        .collect::<Vec<_>>();
+    cup_links.push((*data.last().unwrap(), data.len()));
+    cup_links.sort_by(|(cup1, _), (cup2, _)| cup1.cmp(&cup2));
 
-    let mut chains: Vec<usize> = cups
-        .iter()
-        .enumerate()
-        .map(|(idx, _)| (idx + 1) % cups.len())
-        .collect();
+    let mut links: Vec<usize> = Vec::with_capacity(MAX_CUP as usize);
+    links.extend(cup_links.into_iter().map(|(_, addr)| addr));
+    links.extend(data.len() + 1..MAX_CUP as usize);
+    links.push(start_addr);
 
-    let mut position = 0;
+    let mut position = start_addr;
     for _ in 0..10_000_000 {
-        let cup1_addr = chains[position];
-        let cup2_addr = chains[cup1_addr];
-        let cup3_addr = chains[cup2_addr];
+        let cup1_addr = links[position];
+        let cup2_addr = links[cup1_addr];
+        let cup3_addr = links[cup2_addr];
 
-        let next = [cups[cup1_addr], cups[cup2_addr], cups[cup3_addr]];
-        let mut pivot = prev_cup(cups[position], MAX_CUP);
+        let next = [
+            addr_to_cup(cup1_addr),
+            addr_to_cup(cup2_addr),
+            addr_to_cup(cup3_addr),
+        ];
+        let mut pivot = prev_cup(addr_to_cup(position), MAX_CUP);
         while next.iter().any(|&c| c == pivot) {
             pivot = prev_cup(pivot, MAX_CUP);
         }
 
-        let pivot_addr = map[&pivot];
-        let next_addr = chains[cup3_addr];
+        let pivot_addr = cup_to_addr(pivot);
+        let next_addr = links[cup3_addr];
 
-        chains[position] = next_addr;
-        chains[cup3_addr] = chains[pivot_addr];
-        chains[pivot_addr] = cup1_addr;
+        links[position] = next_addr;
+        links[cup3_addr] = links[pivot_addr];
+        links[pivot_addr] = cup1_addr;
 
         position = next_addr;
     }
 
-    let one_addr = map[&1];
-    let first_addr = chains[one_addr];
-    let second_addr = chains[first_addr];
-
-    cups[first_addr] as u64 * cups[second_addr] as u64
+    let first_addr = cup_to_addr(1);
+    let second_addr = links[first_addr];
+    addr_to_cup(first_addr) as u64 * addr_to_cup(second_addr) as u64
 }
