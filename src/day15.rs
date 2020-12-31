@@ -1,21 +1,24 @@
-use std::{collections::HashMap, num::ParseIntError};
+use std::num::ParseIntError;
 
 #[aoc_generator(day15)]
 fn parse_input(input: &str) -> Result<Vec<u32>, ParseIntError> {
     input.split(',').map(str::parse).collect()
 }
 
-fn play(data: &[u32], target: usize) -> u32 {
-    let mut history: HashMap<u32, usize> = data
-        .iter()
-        .enumerate()
-        .map(|(idx, value)| (*value, idx + 1))
-        .collect();
+fn play(data: &[u32], target: u32) -> u32 {
+    let mut history = vec![None; target as usize];
 
-    (data.len() + 1..target).fold(0, |current, turn| {
-        history
-            .insert(current, turn)
-            .map_or(0, |previous| (turn - previous) as u32)
+    for (turn, &value) in data.iter().enumerate() {
+        history[value as usize] = Some(turn as u32 + 1);
+    }
+
+    let last = *data.last().unwrap();
+    (data.len() as u32..target).fold(last, |last, turn| {
+        let entry = &mut history[last as usize];
+
+        let previously = *entry;
+        *entry = Some(turn);
+        previously.map_or(0, |last_turn| turn - last_turn)
     })
 }
 
