@@ -43,10 +43,9 @@ impl Machine {
 
     fn step(&mut self) -> State {
         if let Some(op) = self.program.get(self.pc) {
-            if self.trace.contains(&self.pc) {
+            if !self.trace.insert(self.pc) {
                 return State::Blocked;
             }
-            self.trace.insert(self.pc);
 
             match op {
                 Op::Nop(_) => self.pc += 1,
