@@ -88,17 +88,17 @@ fn floating_masks(input: &str) -> Vec<u64> {
         .enumerate()
         .filter_map(|(idx, c)| if c == 'X' { Some(idx) } else { None })
         .enumerate()
+        .map(|(idx, offset)| (1 << idx, offset - idx))
         .collect::<Vec<_>>();
 
     let (max_bits, _) = ops.last().unwrap();
-    let max_value = 1 << (max_bits + 1);
+    let max_value = max_bits << 1;
 
     (0..max_value)
         .map(|base| {
-            ops.iter().fold(0, |acc, (mask, offset)| {
-                let bit = base & 1 << mask;
-                let shift = offset - mask;
-                acc | bit << shift
+            ops.iter().fold(0, |acc, (mask, shift)| {
+                let bit = base & mask;
+                acc | (bit << shift)
             })
         })
         .collect()
