@@ -6,7 +6,7 @@ use nom::{
     combinator::{all_consuming, map, map_res, recognize},
     error::Error,
     multi::{many1, separated_list1},
-    sequence::separated_pair,
+    sequence::{preceded, separated_pair},
     Finish, IResult,
 };
 use std::{collections::HashMap, str::FromStr};
@@ -47,10 +47,12 @@ fn is_hex_digit(c: char) -> bool {
 }
 
 fn parse_hex(input: &str) -> IResult<&str, HexColor> {
-    let (input, _) = tag("#")(input)?;
-    map(take_while_m_n(6, 6, is_hex_digit), |s: &str| {
-        HexColor(s.to_string())
-    })(input)
+    preceded(
+        tag("#"),
+        map(take_while_m_n(6, 6, is_hex_digit), |s: &str| {
+            HexColor(s.to_string())
+        }),
+    )(input)
 }
 
 impl FromStr for HexColor {

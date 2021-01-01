@@ -5,7 +5,7 @@ use nom::{
     combinator::{all_consuming, map, recognize},
     error::Error,
     multi::{many1, separated_list1},
-    sequence::separated_pair,
+    sequence::{preceded, tuple, separated_pair},
     Finish, IResult,
 };
 use std::{
@@ -56,13 +56,14 @@ fn parse_ticket(input: &str) -> IResult<&str, Vec<u32>> {
 }
 
 fn parse_data(input: &str) -> IResult<&str, Document> {
-    let (input, rules) = parse_rules(input)?;
-    let (input, _) = tag("\n\nyour ticket:\n")(input)?;
-    let (input, ticket) = parse_ticket(input)?;
-    let (input, _) = tag("\n\nnearby tickets:\n")(input)?;
-    let (input, neighbours) = separated_list1(tag("\n"), parse_ticket)(input)?;
-
-    Ok((input, (rules, ticket, neighbours)))
+    tuple((
+        parse_rules,
+        preceded(tag("\n\nyour ticket:\n"), parse_ticket),
+        preceded(
+            tag("\n\nnearby tickets:\n"),
+            separated_list1(tag("\n"), parse_ticket),
+        ),
+    ))(input)
 }
 
 #[aoc_generator(day16)]

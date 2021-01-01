@@ -1,10 +1,7 @@
+use crate::parsers::number;
 use nom::{
-    bytes::complete::tag,
-    character::complete::{alpha1, digit1},
-    combinator::{all_consuming, map_res},
-    error::Error,
-    multi::separated_list1,
-    Finish, IResult,
+    bytes::complete::tag, character::complete::alpha1, combinator::all_consuming, error::Error,
+    multi::separated_list1, sequence::tuple, Finish, IResult,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -68,8 +65,7 @@ enum Move {
 }
 
 fn op(input: &str) -> IResult<&str, Move> {
-    let (input, op) = alpha1(input)?;
-    let (input, arg) = map_res(digit1, str::parse)(input)?;
+    let (input, (op, arg)) = tuple((alpha1, number))(input)?;
 
     let op = match op {
         "N" => Move::Direction(Direction::North, arg),
