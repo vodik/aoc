@@ -141,14 +141,12 @@ fn tile(input: &str) -> IResult<&str, Tile> {
     )(input)
 }
 
-fn parse_tiles(input: &str) -> IResult<&str, HashMap<u32, Tile>> {
-    map(separated_list1(tag("\n\n"), tile), |data| {
-        data.into_iter().map(|tile| (tile.id, tile)).collect()
-    })(input)
+fn parse_tiles(input: &str) -> IResult<&str, Vec<Tile>> {
+    separated_list1(tag("\n\n"), tile)(input)
 }
 
 #[aoc_generator(day20)]
-fn parse_input(input: &str) -> Result<HashMap<u32, Tile>, Error<String>> {
+fn parse_input(input: &str) -> Result<Vec<Tile>, Error<String>> {
     match all_consuming(parse_tiles)(input).finish() {
         Ok((_, output)) => Ok(output),
         Err(Error { input, code }) => Err(Error {
@@ -163,9 +161,9 @@ fn reverse_edge(value: u16) -> u16 {
     value.reverse_bits() >> 6
 }
 
-fn edge_map(tiles: &HashMap<u32, Tile>) -> HashMap<u16, usize> {
+fn edge_map(tiles: &[Tile]) -> HashMap<u16, usize> {
     let mut edges = HashMap::new();
-    for tile in tiles.values() {
+    for tile in tiles.iter() {
         for &edge in &tile.edges() {
             *edges.entry(edge).or_default() += 1;
             *edges.entry(reverse_edge(edge)).or_default() += 1;
@@ -176,21 +174,21 @@ fn edge_map(tiles: &HashMap<u32, Tile>) -> HashMap<u16, usize> {
 
 fn iter_corners<'a>(
     edges: &'a HashMap<u16, usize>,
-    tiles: &'a HashMap<u32, Tile>,
+    tiles: &'a [Tile],
 ) -> impl Iterator<Item = &'a Tile> + 'a {
     tiles
-        .values()
+        .iter()
         .filter(move |tile| tile.edges().iter().map(|edge| edges[edge]).sum::<usize>() == 6)
 }
 
 #[aoc(day20, part1)]
-fn part1(tiles: &HashMap<u32, Tile>) -> u64 {
+fn part1(tiles: &[ Tile]) -> u64 {
     let edges = edge_map(tiles);
     iter_corners(&edges, tiles).fold(1, |acc, tile| acc * tile.id as u64)
 }
 
 #[aoc(day20, part2)]
-fn part2(tiles: &HashMap<u32, Tile>) -> usize {
+fn part2(tiles: &[Tile]) -> usize {
     let width = (tiles.len() as f32).sqrt() as usize;
 
     let mut map = Vec::with_capacity(tiles.len());
@@ -230,7 +228,7 @@ fn part2(tiles: &HashMap<u32, Tile>) -> usize {
                 let edge = cursor.bottom();
                 let edge_alt = reverse_edge(edge);
                 tiles
-                    .values()
+                    .iter()
                     .filter(|tile| tile.id != cursor.id)
                     .find_map(|tile| {
                         if edge == tile.top() {
@@ -258,7 +256,7 @@ fn part2(tiles: &HashMap<u32, Tile>) -> usize {
                 let edge = cursor.right();
                 let edge_alt = reverse_edge(edge);
                 tiles
-                    .values()
+                    .iter()
                     .filter(|tile| tile.id != cursor.id)
                     .find_map(|tile| {
                         if edge == tile.top() {
