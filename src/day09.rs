@@ -24,33 +24,29 @@ fn part1(data: &[u64]) -> Option<u64> {
     })
 }
 
-pub fn slices<T>(data: &[T]) -> impl Iterator<Item = &[T]> + '_ {
-    data.iter().enumerate().map(move |(idx, _)| &data[idx..])
-}
-
 #[aoc(day9, part2)]
 fn part2(data: &[u64]) -> Option<u64> {
     let weakness = part1(data)?;
 
-    slices(data)
-        .find_map(|slice| {
-            let mut sum = 0;
+    let mut start = 0;
+    let mut end = 1;
+    let mut sum = data[0] + data[1];
 
-            for (idx, x) in slice.iter().enumerate() {
-                sum += x;
-
-                match sum.cmp(&weakness) {
-                    Ordering::Greater => break,
-                    Ordering::Equal => return Some(&slice[..idx]),
-                    _ => {}
-                }
+    let slice = loop {
+        match sum.cmp(&weakness) {
+            Ordering::Less => {
+                end += 1;
+                sum += data[end];
             }
+            Ordering::Greater => {
+                sum -= data[start];
+                start += 1;
+            }
+            Ordering::Equal => break &data[start..=end],
+        }
+    };
 
-            None
-        })
-        .and_then(|slice| {
-            let min = slice.iter().min()?;
-            let max = slice.iter().max()?;
-            Some(min + max)
-        })
+    let min = slice.iter().min()?;
+    let max = slice.iter().max()?;
+    Some(min + max)
 }
