@@ -1,0 +1,16 @@
+[package]
+name = "advent-of-code-2020"
+version = "1.0.0"
+authors = ["Simon Gomizelj <sgomizelj@mcquaig.com>"]
+edition = "2018"
+
+[dependencies]
+aoc-runner = "0.3.0"
+aoc-runner-derive = "0.3.0"
+bytecount = "0.6.2"
+maplit = "1.0.2"
+nom = "6"
+
+[features]
+runtime-dispatch-simd = ["bytecount/runtime-dispatch-simd"]
+generic-simd = ["bytecount/generic-simd"]
