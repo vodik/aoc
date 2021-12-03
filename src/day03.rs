@@ -40,6 +40,7 @@ fn filter_dataset(mut data: Vec<u16>, prefer_ones: bool) -> Option<u16> {
             break;
         }
     }
+
     data.pop()
 }
 
