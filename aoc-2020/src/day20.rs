@@ -182,7 +182,7 @@ fn iter_corners<'a>(
 }
 
 #[aoc(day20, part1)]
-fn part1(tiles: &[ Tile]) -> u64 {
+fn part1(tiles: &[Tile]) -> u64 {
     let edges = edge_map(tiles);
     iter_corners(&edges, tiles).fold(1, |acc, tile| acc * tile.id as u64)
 }

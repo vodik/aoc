@@ -5,11 +5,11 @@ authors = ["Simon Gomizelj <sgomizelj@mcquaig.com>"]
 edition = "2018"
 
 [dependencies]
-aoc-runner = "0.3.0"
-aoc-runner-derive = "0.3.0"
-bytecount = "0.6.2"
-maplit = "1.0.2"
-nom = "6"
+aoc-runner = "0.3"
+aoc-runner-derive = "0.3"
+bytecount = "0.6"
+maplit = "1.0"
+nom = "7"
 
 [features]
 runtime-dispatch-simd = ["bytecount/runtime-dispatch-simd"]

@@ -5,7 +5,7 @@ use nom::{
     combinator::{all_consuming, map, recognize},
     error::Error,
     multi::{many1, separated_list1},
-    sequence::{preceded, tuple, separated_pair},
+    sequence::{preceded, separated_pair, tuple},
     Finish, IResult,
 };
 use std::{

@@ -33,9 +33,11 @@ fn part1(input: &str) -> Result<i64, Error<String>> {
     fn expr(input: &str) -> IResult<&str, i64> {
         let (input, init) = factor(input)?;
 
-        fold_many0(pair(one_of("*/+-"), factor), init, |acc, (op, val)| {
-            apply(op, acc, val)
-        })(input)
+        fold_many0(
+            pair(one_of("*/+-"), factor),
+            move || init,
+            |acc, (op, val)| apply(op, acc, val),
+        )(input)
     }
 
     match all_consuming(separated_list1(tag("\n"), expr))(input).finish() {
@@ -60,17 +62,21 @@ fn part2(input: &str) -> Result<i64, Error<String>> {
     fn expr2(input: &str) -> IResult<&str, i64> {
         let (input, init) = factor(input)?;
 
-        fold_many0(pair(one_of("+-"), factor), init, |acc, (op, val)| {
-            apply(op, acc, val)
-        })(input)
+        fold_many0(
+            pair(one_of("+-"), factor),
+            move || init,
+            |acc, (op, val)| apply(op, acc, val),
+        )(input)
     }
 
     fn expr(input: &str) -> IResult<&str, i64> {
         let (input, init) = expr2(input)?;
 
-        fold_many0(pair(one_of("*/"), expr2), init, |acc, (op, val)| {
-            apply(op, acc, val)
-        })(input)
+        fold_many0(
+            pair(one_of("*/"), expr2),
+            move || init,
+            |acc, (op, val)| apply(op, acc, val),
+        )(input)
     }
 
     match all_consuming(separated_list1(tag("\n"), expr))(input).finish() {

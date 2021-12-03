@@ -1,6 +1,4 @@
 #![feature(hash_drain_filter)]
-#![feature(map_into_keys_values)]
-#![feature(bindings_after_at)]
 
 #[macro_use]
 extern crate aoc_runner_derive;
