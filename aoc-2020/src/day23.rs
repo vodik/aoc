@@ -64,7 +64,7 @@ fn part2(data: &[u32]) -> u64 {
         .map(|window| (window[0], cup_to_addr(window[1])))
         .collect::<Vec<_>>();
     cup_links.push((*data.last().unwrap(), data.len()));
-    cup_links.sort_by(|(cup1, _), (cup2, _)| cup1.cmp(&cup2));
+    cup_links.sort_by(|(cup1, _), (cup2, _)| cup1.cmp(cup2));
 
     let mut links: Vec<usize> = Vec::with_capacity(MAX_CUP as usize);
     links.extend(cup_links.into_iter().map(|(_, addr)| addr));

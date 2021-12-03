@@ -28,25 +28,25 @@ pub fn part1(input: &[u16]) -> u32 {
     gamma as u32 * (!gamma & MASK) as u32
 }
 
-fn filter_dataset(mut data: Vec<u16>, prefer_ones: bool) -> Option<u16> {
+fn scan(mut candidates: Vec<u16>, prefer_ones: bool) -> Option<u16> {
     for shift in 0..BITWIDTH {
         let mask = 1 << (BITWIDTH - shift - 1);
-        let count = data.iter().filter(|&num| num & mask == 0).count();
+        let count = candidates.iter().filter(|&num| num & mask == 0).count();
 
-        let expect_one = prefer_ones ^ (count * 2 < data.len());
-        data.retain(|&num| expect_one ^ (num & mask == 0));
+        let expect_one = prefer_ones ^ (count * 2 < candidates.len());
+        candidates.retain(|&num| expect_one ^ (num & mask == 0));
 
-        if data.len() <= 1 {
+        if candidates.len() <= 1 {
             break;
         }
     }
 
-    data.pop()
+    candidates.pop()
 }
 
 pub fn part2(input: &[u16]) -> u32 {
-    let oxygen = filter_dataset(input.to_vec(), true).unwrap();
-    let co2 = filter_dataset(input.to_vec(), false).unwrap();
+    let oxygen = scan(input.to_vec(), true).unwrap();
+    let co2 = scan(input.to_vec(), false).unwrap();
 
     oxygen as u32 * co2 as u32
 }

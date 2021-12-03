@@ -91,14 +91,14 @@ fn match_rule(rules: &HashMap<u64, Rule>, rule: u64, chars: &mut Peekable<Chars>
 
 fn match_rules(rules: &HashMap<u64, Rule>, input: &str) -> bool {
     let mut chars = input.chars().peekable();
-    match_rule(&rules, 0, &mut chars) && chars.peek().is_none()
+    match_rule(rules, 0, &mut chars) && chars.peek().is_none()
 }
 
 #[aoc(day19, part1)]
 fn part1((rules, lines): &Input) -> usize {
     lines
         .iter()
-        .filter(|line| match_rules(&rules, line))
+        .filter(|line| match_rules(rules, line))
         .count()
 }
 

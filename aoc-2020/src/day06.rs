@@ -20,7 +20,7 @@ impl AnswerSheet {
 
         if let Some(first) = iter.next() {
             iter.fold(first.clone(), |acc, set| {
-                acc.intersection(&set).cloned().collect()
+                acc.intersection(set).cloned().collect()
             })
         } else {
             HashSet::new()

@@ -40,7 +40,7 @@ impl Default for Tile {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 struct Axial(i32, i32);
 
 impl Axial {
@@ -54,12 +54,6 @@ impl Axial {
             Direction::NorthWest => Axial(q, r - 1),
             Direction::NorthEast => Axial(q + 1, r - 1),
         }
-    }
-}
-
-impl Default for Axial {
-    fn default() -> Self {
-        Self(0, 0)
     }
 }
 
@@ -95,7 +89,7 @@ fn lay_tiles(data: &[Vec<Direction>]) -> HashMap<Axial, Tile> {
     for instruction in data {
         let point = instruction
             .iter()
-            .fold(Axial::default(), |point, step| point.step(&step));
+            .fold(Axial::default(), |point, step| point.step(step));
         map.entry(point).or_default().flip();
     }
 
