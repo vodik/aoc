@@ -118,19 +118,29 @@ pub fn parse_input(input: &str) -> Game {
     .unwrap()
 }
 
-fn simulate_game(board: [u16; 25], calls: &[u16]) -> Option<(usize, u32)> {
+fn simulate_game(board: [u16; 25], calls: &[u16], limit: usize) -> Option<(usize, u32)> {
     let mut board = Board::new(board);
 
-    calls.iter().enumerate().find_map(|(generation, &call)| {
-        let score = board.advance(call)?;
-        Some((generation, call as u32 * score))
-    })
+    calls
+        .iter()
+        .take(limit)
+        .enumerate()
+        .find_map(|(generation, &call)| {
+            let score = board.advance(call)?;
+            Some((generation, call as u32 * score))
+        })
 }
 
 pub fn part1(Game { calls, boards }: &Game) -> u32 {
+    let mut limit = boards.len();
+
     let (_, score) = boards
         .iter()
-        .flat_map(|&board| simulate_game(board, calls))
+        .flat_map(|&board| {
+            let (generation, score) = simulate_game(board, calls, limit)?;
+            limit = limit.min(generation);
+            Some((generation, score))
+        })
         .min_by_key(|&(generation, _)| generation)
         .unwrap();
 
@@ -140,7 +150,7 @@ pub fn part1(Game { calls, boards }: &Game) -> u32 {
 pub fn part2(Game { calls, boards }: &Game) -> u32 {
     let (_, score) = boards
         .iter()
-        .flat_map(|&board| simulate_game(board, calls))
+        .flat_map(|&board| simulate_game(board, calls, boards.len()))
         .max_by_key(|&(generation, _)| generation)
         .unwrap();
 
