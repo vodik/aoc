@@ -7,7 +7,7 @@ use nom::{
     sequence::{preceded, separated_pair, terminated},
     Finish, IResult,
 };
-use std::str::FromStr;
+use std::{num::NonZeroU32, str::FromStr};
 
 #[derive(Debug)]
 pub struct Game {
@@ -18,20 +18,21 @@ pub struct Game {
 #[derive(Debug)]
 pub struct Board {
     numbers: [u16; 25],
-    positions: [isize; 100],
-    state: [bool; 25],
+    position_masks: [Option<NonZeroU32>; 100],
+    state: u32,
 }
 
 impl Board {
-    pub fn new(numbers: [u16; 25]) -> Self {
-        let mut positions = [-1; 100];
+    fn new(numbers: [u16; 25]) -> Self {
+        let mut position_masks = [None; 100];
         for (idx, &number) in numbers.iter().enumerate() {
-            positions[number as usize] = isize::try_from(idx).unwrap();
+            position_masks[number as usize] =
+                Some(NonZeroU32::new(1 << u32::try_from(idx).unwrap()).unwrap());
         }
 
         Self {
             numbers,
-            positions,
+            position_masks,
             state: Default::default(),
         }
     }
@@ -42,38 +43,34 @@ impl Board {
     }
 
     fn call(&mut self, number: u16) {
-        if let Some(&idx) = self.positions.get(number as usize) {
-            if !idx.is_negative() {
-                self.state[idx as usize] = true;
-            }
+        if let Some(&Some(mask)) = self.position_masks.get(number as usize) {
+            self.state |= mask.get();
         }
     }
 
     fn won(&self) -> bool {
-        const PATTERNS: &[[usize; 5]; 10] = &[
-            [0, 1, 2, 3, 4],
-            [5, 6, 7, 8, 9],
-            [10, 11, 12, 13, 14],
-            [15, 16, 17, 18, 19],
-            [20, 21, 22, 23, 24],
-            [0, 5, 10, 15, 20],
-            [1, 6, 11, 16, 21],
-            [2, 7, 12, 17, 22],
-            [3, 8, 13, 18, 23],
-            [4, 9, 14, 19, 24],
+        const PATTERNS: &[u32; 10] = &[
+            0b0000000000000000000011111,
+            0b0000000000000001111100000,
+            0b0000000000111110000000000,
+            0b0000011111000000000000000,
+            0b1111100000000000000000000,
+            0b0000100001000010000100001,
+            0b0001000010000100001000010,
+            0b0010000100001000010000100,
+            0b0100001000010000100001000,
+            0b1000010000100001000010000,
         ];
 
         PATTERNS
             .iter()
-            .any(|&pattern| pattern.iter().all(|&idx| self.state[idx]))
+            .any(|&pattern| self.state & pattern == pattern)
     }
 
     fn score(&self) -> u32 {
-        self.state
-            .iter()
-            .enumerate()
-            .filter(|(_, &state)| !state)
-            .map(|(idx, _)| self.numbers[idx] as u32)
+        (0..25)
+            .filter(|index| self.state & 1 << index == 0)
+            .map(|index| self.numbers[index] as u32)
             .sum()
     }
 }
