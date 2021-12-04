@@ -9,27 +9,48 @@ use nom::{
 };
 use std::str::FromStr;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Game {
     pub calls: Vec<u16>,
-    pub boards: Vec<Board>,
+    pub boards: Vec<[u16; 25]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Board {
-    layout: [u16; 25],
-    set: [bool; 25],
+    numbers: [u16; 25],
+    positions: [isize; 100],
+    state: [bool; 25],
 }
 
 impl Board {
+    pub fn new(numbers: [u16; 25]) -> Self {
+        let mut positions = [-1; 100];
+        for (idx, &number) in numbers.iter().enumerate() {
+            positions[number as usize] = isize::try_from(idx).unwrap();
+        }
+
+        Self {
+            numbers,
+            positions,
+            state: Default::default(),
+        }
+    }
+
+    fn advance(&mut self, number: u16) -> Option<u32> {
+        self.call(number);
+        self.won().then(|| self.score())
+    }
+
     fn call(&mut self, number: u16) {
-        if let Some(idx) = self.layout.iter().position(|&v| v == number) {
-            self.set[idx] = true;
+        if let Some(&idx) = self.positions.get(number as usize) {
+            if !idx.is_negative() {
+                self.state[idx as usize] = true;
+            }
         }
     }
 
     fn won(&self) -> bool {
-        const PATTERNS: [[usize; 5]; 10] = [
+        const PATTERNS: &[[usize; 5]; 10] = &[
             [0, 1, 2, 3, 4],
             [5, 6, 7, 8, 9],
             [10, 11, 12, 13, 14],
@@ -44,15 +65,15 @@ impl Board {
 
         PATTERNS
             .iter()
-            .any(|&pattern| pattern.iter().all(|&idx| self.set[idx]))
+            .any(|&pattern| pattern.iter().all(|&idx| self.state[idx]))
     }
 
     fn score(&self) -> u32 {
-        self.set
+        self.state
             .iter()
             .enumerate()
-            .filter(|(_, &s)| !s)
-            .map(|(idx, _)| self.layout[idx] as u32)
+            .filter(|(_, &state)| !state)
+            .map(|(idx, _)| self.numbers[idx] as u32)
             .sum()
     }
 }
@@ -61,27 +82,28 @@ pub fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
     preceded(opt(tag(" ")), map_res(digit1, FromStr::from_str))(input)
 }
 
-fn board(input: &str) -> IResult<&str, Board> {
+fn board(input: &str) -> IResult<&str, [u16; 25]> {
     map(
         separated_list1(tag("\n"), separated_list1(tag(" "), number)),
         |numbers: Vec<Vec<u16>>| {
             let numbers = numbers.into_iter().flatten().collect::<Vec<u16>>();
-            Board {
-                layout: numbers.try_into().unwrap(),
-                set: [false; 25],
-            }
+            numbers.try_into().unwrap()
         },
     )(input)
 }
 
-fn parse_board(input: &str) -> IResult<&str, Vec<Board>> {
+fn parse_board(input: &str) -> IResult<&str, Vec<[u16; 25]>> {
     separated_list1(tag("\n\n"), board)(input)
 }
 
-fn parse_input2(input: &str) -> IResult<&str, Game> {
+fn parse_calls(input: &str) -> IResult<&str, Vec<u16>> {
+    separated_list1(tag(","), number)(input)
+}
+
+fn parse_file(input: &str) -> IResult<&str, Game> {
     map(
         terminated(
-            separated_pair(separated_list1(tag(","), number), tag("\n\n"), parse_board),
+            separated_pair(parse_calls, tag("\n\n"), parse_board),
             tag("\n"),
         ),
         |(calls, boards)| Game { calls, boards },
@@ -89,7 +111,7 @@ fn parse_input2(input: &str) -> IResult<&str, Game> {
 }
 
 pub fn parse_input(input: &str) -> Game {
-    match all_consuming(parse_input2)(input).finish() {
+    match all_consuming(parse_file)(input).finish() {
         Ok((_, output)) => Ok(output),
         Err(Error { input, code }) => Err(Error {
             input: input.to_string(),
@@ -99,44 +121,31 @@ pub fn parse_input(input: &str) -> Game {
     .unwrap()
 }
 
-pub fn part1(input: &Game) -> u32 {
-    let mut input = input.clone();
-    let mut winner = None;
-    let mut called = None;
+fn simulate_game(board: [u16; 25], calls: &[u16]) -> Option<(usize, u32)> {
+    let mut board = Board::new(board);
 
-    for call in input.calls {
-        for board in input.boards.iter_mut() {
-            board.call(call);
-        }
-
-        let mut won: Vec<Board> = input.boards.drain_filter(|board| board.won()).collect();
-        if !won.is_empty() {
-            winner = won.pop();
-            called = Some(call as u32);
-            break;
-        }
-    }
-
-    winner.unwrap().score() * called.unwrap()
+    calls.iter().enumerate().find_map(|(generation, &call)| {
+        let score = board.advance(call)?;
+        Some((generation, call as u32 * score))
+    })
 }
 
-pub fn part2(input: &Game) -> u32 {
-    let mut input = input.clone();
-    let mut winner = None;
-    let mut called = None;
+pub fn part1(Game { calls, boards }: &Game) -> u32 {
+    let (_, score) = boards
+        .iter()
+        .flat_map(|&board| simulate_game(board, calls))
+        .min_by_key(|&(generation, _)| generation)
+        .unwrap();
 
-    for call in input.calls {
-        for board in input.boards.iter_mut() {
-            board.call(call);
-        }
+    score
+}
 
-        let mut won: Vec<Board> = input.boards.drain_filter(|board| board.won()).collect();
-        if input.boards.is_empty() {
-            winner = won.pop();
-            called = Some(call as u32);
-            break;
-        }
-    }
+pub fn part2(Game { calls, boards }: &Game) -> u32 {
+    let (_, score) = boards
+        .iter()
+        .flat_map(|&board| simulate_game(board, calls))
+        .max_by_key(|&(generation, _)| generation)
+        .unwrap();
 
-    winner.unwrap().score() * called.unwrap()
+    score
 }
