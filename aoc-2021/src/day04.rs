@@ -16,14 +16,14 @@ pub struct Game {
 }
 
 #[derive(Debug)]
-pub struct Board {
-    numbers: [u16; 25],
+pub struct Board<'a> {
+    numbers: &'a [u16; 25],
     position_masks: [Option<NonZeroU32>; 100],
     state: u32,
 }
 
-impl Board {
-    fn new(numbers: [u16; 25]) -> Self {
+impl<'a> Board<'a> {
+    fn new(numbers: &'a [u16; 25]) -> Self {
         let mut position_masks = [None; 100];
         for (idx, &number) in numbers.iter().enumerate() {
             position_masks[number as usize] =
@@ -118,7 +118,7 @@ pub fn parse_input(input: &str) -> Game {
     .unwrap()
 }
 
-fn simulate_game(board: [u16; 25], calls: &[u16], limit: usize) -> Option<(usize, u32)> {
+fn simulate_game(board: &[u16; 25], calls: &[u16], limit: usize) -> Option<(usize, u32)> {
     let mut board = Board::new(board);
 
     calls
@@ -136,7 +136,7 @@ pub fn part1(Game { calls, boards }: &Game) -> u32 {
 
     let (_, score) = boards
         .iter()
-        .flat_map(|&board| {
+        .flat_map(|board| {
             let (generation, score) = simulate_game(board, calls, limit)?;
             limit = limit.min(generation);
             Some((generation, score))
@@ -150,7 +150,7 @@ pub fn part1(Game { calls, boards }: &Game) -> u32 {
 pub fn part2(Game { calls, boards }: &Game) -> u32 {
     let (_, score) = boards
         .iter()
-        .flat_map(|&board| simulate_game(board, calls, boards.len()))
+        .flat_map(|board| simulate_game(board, calls, boards.len()))
         .max_by_key(|&(generation, _)| generation)
         .unwrap();
 
