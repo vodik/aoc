@@ -9,21 +9,23 @@ use nom::{
 };
 use std::{num::NonZeroU32, str::FromStr};
 
+pub type Board = [u16; 25];
+
 #[derive(Debug)]
 pub struct Game {
     pub calls: Vec<u16>,
-    pub boards: Vec<[u16; 25]>,
+    pub boards: Vec<Board>,
 }
 
 #[derive(Debug)]
-pub struct Board<'a> {
-    numbers: &'a [u16; 25],
+pub struct Bingo<'a> {
+    numbers: &'a Board,
     position_masks: [Option<NonZeroU32>; 100],
     state: u32,
 }
 
-impl<'a> Board<'a> {
-    fn new(numbers: &'a [u16; 25]) -> Self {
+impl<'a> Bingo<'a> {
+    fn new(numbers: &'a Board) -> Self {
         let mut position_masks = [None; 100];
         for (idx, &number) in numbers.iter().enumerate() {
             position_masks[number as usize] =
@@ -37,18 +39,18 @@ impl<'a> Board<'a> {
         }
     }
 
-    fn advance(&mut self, number: u16) -> Option<u32> {
-        self.call(number);
-        self.won().then(|| self.score())
+    fn play(&mut self, number: u16) -> Option<u32> {
+        self.mark(number);
+        self.has_complete_row().then(|| self.score())
     }
 
-    fn call(&mut self, number: u16) {
+    fn mark(&mut self, number: u16) {
         if let Some(&Some(mask)) = self.position_masks.get(number as usize) {
             self.state |= mask.get();
         }
     }
 
-    fn won(&self) -> bool {
+    fn has_complete_row(&self) -> bool {
         const PATTERNS: &[u32; 10] = &[
             0b0000000000000000000011111,
             0b0000000000000001111100000,
@@ -79,7 +81,7 @@ pub fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
     preceded(opt(tag(" ")), map_res(digit1, FromStr::from_str))(input)
 }
 
-fn board(input: &str) -> IResult<&str, [u16; 25]> {
+fn board(input: &str) -> IResult<&str, Board> {
     map(
         separated_list1(tag("\n"), separated_list1(tag(" "), number)),
         |numbers: Vec<Vec<u16>>| {
@@ -89,7 +91,7 @@ fn board(input: &str) -> IResult<&str, [u16; 25]> {
     )(input)
 }
 
-fn parse_board(input: &str) -> IResult<&str, Vec<[u16; 25]>> {
+fn parse_board(input: &str) -> IResult<&str, Vec<Board>> {
     separated_list1(tag("\n\n"), board)(input)
 }
 
@@ -118,15 +120,15 @@ pub fn parse_input(input: &str) -> Game {
     .unwrap()
 }
 
-fn simulate_game(board: &[u16; 25], calls: &[u16], limit: usize) -> Option<(usize, u32)> {
-    let mut board = Board::new(board);
+fn simulate_game(board: &Board, calls: &[u16], limit: usize) -> Option<(usize, u32)> {
+    let mut board = Bingo::new(board);
 
     calls
         .iter()
         .take(limit)
         .enumerate()
         .find_map(|(generation, &call)| {
-            let score = board.advance(call)?;
+            let score = board.play(call)?;
             Some((generation, call as u32 * score))
         })
 }
