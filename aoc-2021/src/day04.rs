@@ -17,37 +17,16 @@ pub struct Game {
     pub boards: Vec<Board>,
 }
 
-#[derive(Debug)]
-pub struct Bingo<'a> {
-    numbers: &'a Board,
-    position_masks: [Option<NonZeroU32>; 100],
-    state: u32,
-}
+#[derive(Debug, Default, Clone, Copy)]
+pub struct BitBoard(u32);
 
-impl<'a> Bingo<'a> {
-    fn new(numbers: &'a Board) -> Self {
-        let mut position_masks = [None; 100];
-        for (idx, &number) in numbers.iter().enumerate() {
-            position_masks[number as usize] =
-                Some(NonZeroU32::new(1 << u32::try_from(idx).unwrap()).unwrap());
-        }
-
-        Self {
-            numbers,
-            position_masks,
-            state: Default::default(),
-        }
+impl BitBoard {
+    fn new() -> Self {
+        Self::default()
     }
 
-    fn play(&mut self, number: u16) -> Option<u32> {
-        self.mark(number);
-        self.has_complete_row().then(|| self.score())
-    }
-
-    fn mark(&mut self, number: u16) {
-        if let Some(&Some(mask)) = self.position_masks.get(number as usize) {
-            self.state |= mask.get();
-        }
+    fn mask(&mut self, mask: u32) {
+        self.0 |= mask
     }
 
     fn has_complete_row(&self) -> bool {
@@ -64,16 +43,35 @@ impl<'a> Bingo<'a> {
             0b1000010000100001000010000,
         ];
 
-        PATTERNS
-            .iter()
-            .any(|&pattern| self.state & pattern == pattern)
+        PATTERNS.iter().any(|&pattern| self.0 & pattern == pattern)
     }
 
-    fn score(&self) -> u32 {
+    fn score(&self, board: &Board) -> u32 {
         (0..25)
-            .filter(|index| self.state & 1 << index == 0)
-            .map(|index| self.numbers[index] as u32)
+            .filter(|index| self.0 & 1 << index == 0)
+            .map(|index| board[index] as u32)
             .sum()
+    }
+}
+
+#[derive(Debug)]
+pub struct BoardMap([Option<NonZeroU32>; 100]);
+
+impl BoardMap {
+    fn from(numbers: &Board) -> Self {
+        let mut position_masks = [None; 100];
+        for (idx, &number) in numbers.iter().enumerate() {
+            position_masks[number as usize] =
+                Some(NonZeroU32::new(1 << u32::try_from(idx).unwrap()).unwrap());
+        }
+
+        Self(position_masks)
+    }
+
+    fn find(&self, number: u16) -> Option<u32> {
+        self.0
+            .get(number as usize)
+            .and_then(|&mask| mask.map(NonZeroU32::get))
     }
 }
 
@@ -121,15 +119,18 @@ pub fn parse_input(input: &str) -> Game {
 }
 
 fn simulate_game(board: &Board, calls: &[u16], limit: usize) -> Option<(usize, u32)> {
-    let mut board = Bingo::new(board);
+    let card = BoardMap::from(board);
+    let mut bb = BitBoard::new();
 
     calls
         .iter()
         .take(limit)
         .enumerate()
         .find_map(|(generation, &call)| {
-            let score = board.play(call)?;
-            Some((generation, call as u32 * score))
+            let mask = card.find(call)?;
+            bb.mask(mask);
+            bb.has_complete_row()
+                .then(|| (generation, bb.score(board) * call as u32))
         })
 }
 
