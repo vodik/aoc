@@ -1,3 +1,5 @@
+#![feature(drain_filter)]
+
 use std::{
     fs,
     time::{Duration, Instant},
@@ -6,6 +8,7 @@ use std::{
 mod day01;
 mod day02;
 mod day03;
+mod day04;
 
 fn time<F, R>(f: F) -> (Duration, R)
 where
@@ -33,4 +36,10 @@ fn main() {
     let input = day03::parse_input(&input);
     println!("a: {:?}", time(|| day03::part1(&input)));
     println!("b: {:?}", time(|| day03::part2(&input)));
+    println!();
+
+    let input = fs::read_to_string("./data/day04.txt").unwrap();
+    let input = day04::parse_input(&input);
+    println!("a: {:?}", time(|| day04::part1(&input)));
+    println!("b: {:?}", time(|| day04::part2(&input)));
 }
