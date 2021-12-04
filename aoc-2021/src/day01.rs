@@ -4,7 +4,7 @@ pub fn parse_input(input: &str) -> Vec<u32> {
 
 fn decent_step_count(size: usize, data: &[u32]) -> usize {
     data.windows(size)
-        .filter(|window| window[0] < window[size - 1])
+        .filter(|&window| window[0] < window[size - 1])
         .count()
 }
 

@@ -96,10 +96,7 @@ fn match_rules(rules: &HashMap<u64, Rule>, input: &str) -> bool {
 
 #[aoc(day19, part1)]
 fn part1((rules, lines): &Input) -> usize {
-    lines
-        .iter()
-        .filter(|line| match_rules(rules, line))
-        .count()
+    lines.iter().filter(|line| match_rules(rules, line)).count()
 }
 
 #[aoc(day19, part2)]
