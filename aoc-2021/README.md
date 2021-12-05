@@ -14,7 +14,7 @@ TODO
 
 ## Day 4
 
-11.783µs / 21.816µs
+**6.15µs / 10.129µs**
 
 Highly tuned, there are several tricks deployed here to get this
 performance.

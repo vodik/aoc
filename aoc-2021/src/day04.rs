@@ -119,15 +119,18 @@ pub fn parse_input(input: &str) -> Game {
 
 fn simulate_game(board: &Board, calls: &[u16], limit: usize) -> Option<(usize, u32)> {
     let map = BoardMap::from(board);
-    let mut bb = BitBoard::new();
 
     calls
         .iter()
         .take(limit)
         .enumerate()
-        .find_map(|(generation, &call)| {
-            let mask = map.find(call)?;
-            bb.mask(mask);
+        .scan(BitBoard::new(), |bb, (generation, &call)| {
+            if let Some(mask) = map.find(call) {
+                bb.mask(mask);
+            }
+            Some((generation, call, *bb))
+        })
+        .find_map(|(generation, call, bb)| {
             bb.has_complete_row()
                 .then(|| (generation, bb.score(board) * call as u32))
         })
