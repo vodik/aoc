@@ -33,7 +33,7 @@ fn scan(mut candidates: Vec<u16>, prefer_ones: bool) -> Option<u16> {
         let mask = 1 << (BITWIDTH - shift - 1);
         let count = candidates.iter().filter(|&num| num & mask == 0).count();
 
-        let expect_one = prefer_ones ^ (count * 2 < candidates.len());
+        let expect_one = prefer_ones ^ (count * 2 <= candidates.len());
         candidates.retain(|&num| expect_one ^ (num & mask == 0));
 
         if candidates.len() <= 1 {
