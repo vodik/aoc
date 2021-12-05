@@ -2,13 +2,19 @@
 
 ## Day 1
 
+**822ns / 615ns**
+
 TODO
 
 ## Day 2
 
+**4.96µs / 5.15µs**
+
 TODO
 
 ## Day 3
+
+**1.23µs / 25.70µs**
 
 TODO
 
@@ -43,3 +49,9 @@ that can be on a card is 99, it can efficiently be stored as an array
 I track the board's mutable state separately as a bitmap
 (`u32`). Storing it separately performs better for reasons I don't
 completely understand yet.
+
+## Day 5
+
+**278.56µs / 479.30µs**
+
+TODO
