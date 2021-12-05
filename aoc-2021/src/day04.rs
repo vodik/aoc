@@ -9,7 +9,7 @@ use nom::{
 };
 use std::{num::NonZeroU32, str::FromStr};
 
-pub type Board = [u16; 25];
+type Board = [u16; 25];
 
 #[derive(Debug)]
 pub struct Game {
@@ -18,7 +18,7 @@ pub struct Game {
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct BitBoard(u32);
+struct BitBoard(u32);
 
 impl BitBoard {
     fn new() -> Self {
@@ -55,14 +55,13 @@ impl BitBoard {
 }
 
 #[derive(Debug)]
-pub struct BoardMap([Option<NonZeroU32>; 100]);
+struct BoardMap([Option<NonZeroU32>; 100]);
 
 impl BoardMap {
     fn from(numbers: &Board) -> Self {
         let mut position_masks = [None; 100];
         for (idx, &number) in numbers.iter().enumerate() {
-            position_masks[number as usize] =
-                Some(NonZeroU32::new(1 << u32::try_from(idx).unwrap()).unwrap());
+            position_masks[number as usize] = NonZeroU32::new(1 << u32::try_from(idx).unwrap());
         }
 
         Self(position_masks)
@@ -75,7 +74,7 @@ impl BoardMap {
     }
 }
 
-pub fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
+fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
     preceded(opt(tag(" ")), map_res(digit1, FromStr::from_str))(input)
 }
 
@@ -119,7 +118,7 @@ pub fn parse_input(input: &str) -> Game {
 }
 
 fn simulate_game(board: &Board, calls: &[u16], limit: usize) -> Option<(usize, u32)> {
-    let card = BoardMap::from(board);
+    let map = BoardMap::from(board);
     let mut bb = BitBoard::new();
 
     calls
@@ -127,7 +126,7 @@ fn simulate_game(board: &Board, calls: &[u16], limit: usize) -> Option<(usize, u
         .take(limit)
         .enumerate()
         .find_map(|(generation, &call)| {
-            let mask = card.find(call)?;
+            let mask = map.find(call)?;
             bb.mask(mask);
             bb.has_complete_row()
                 .then(|| (generation, bb.score(board) * call as u32))
