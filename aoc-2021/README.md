@@ -55,3 +55,9 @@ completely understand yet.
 **278.56µs / 479.30µs**
 
 TODO
+
+## Day 6
+
+**217ns / 224ns**
+
+TODO
