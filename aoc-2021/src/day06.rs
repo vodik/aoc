@@ -6,25 +6,20 @@ pub fn parse_input(input: &str) -> Vec<u8> {
         .collect()
 }
 
-fn simulate(data: &[u8], generations: usize) -> usize {
+fn simulate<const N: usize>(data: &[u8]) -> usize {
     let mut tank = [0; 9];
     for &fish in data {
         tank[fish as usize] += 1;
     }
 
-    for _ in 0..(generations / 9) {
-        tank[7] += tank[0];
-        tank[8] += tank[1];
-        tank[0] += tank[2];
-        tank[1] += tank[3];
-        tank[2] += tank[4];
-        tank[3] += tank[5];
-        tank[4] += tank[6];
-        tank[5] += tank[7];
-        tank[6] += tank[8];
+    const BUMP: [usize; 9] = [7, 8, 0, 1, 2, 3, 4, 5, 6];
+    for _ in 0..(N / 9) {
+        for (i, &j) in BUMP.iter().enumerate() {
+            tank[j] += tank[i];
+        }
     }
 
-    for generation in 0..(generations % 9) {
+    for generation in 0..(N % 9) {
         tank[(generation + 7) % 9] += tank[generation];
     }
 
@@ -32,9 +27,9 @@ fn simulate(data: &[u8], generations: usize) -> usize {
 }
 
 pub fn part1(input: &[u8]) -> usize {
-    simulate(input, 80)
+    simulate::<80>(input)
 }
 
 pub fn part2(input: &[u8]) -> usize {
-    simulate(input, 256)
+    simulate::<256>(input)
 }
