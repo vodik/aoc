@@ -22,6 +22,8 @@ where
 }
 
 fn main() {
+    let now = Instant::now();
+
     let input = fs::read_to_string("./data/day01.txt").unwrap();
     let input = day01::parse_input(&input);
     println!(":: day1");
@@ -63,4 +65,6 @@ fn main() {
     println!("part1: {:?}", time(|| day06::part1(&input)));
     println!("part2: {:?}", time(|| day06::part2(&input)));
     println!();
+
+    println!("total: {:?}", now.elapsed());
 }
