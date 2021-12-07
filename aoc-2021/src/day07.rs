@@ -6,7 +6,7 @@ pub fn parse_input(input: &str) -> Vec<u32> {
         .collect()
 }
 
-fn linear_fuel_consumption(a: u32, b: u32) -> u32 {
+fn linear_cost(a: u32, b: u32) -> u32 {
     if a > b {
         a - b
     } else {
@@ -14,34 +14,35 @@ fn linear_fuel_consumption(a: u32, b: u32) -> u32 {
     }
 }
 
-fn triangle_fuel_consumption(a: u32, b: u32) -> u32 {
-    let distance = linear_fuel_consumption(a, b);
+fn triangle_cost(a: u32, b: u32) -> u32 {
+    let distance = linear_cost(a, b);
     distance * (distance + 1) / 2
 }
 
-fn project_fuel_consumption<F>(input: &[u32], position: u32, f: F) -> u32
+fn get_fuel_consumption<F>(input: &[u32], position: u32, f: F) -> u32
 where
     F: Fn(u32, u32) -> u32,
 {
     input.iter().map(|&x| f(x, position)).sum()
 }
 
-pub fn part1(input: &[u32]) -> u32 {
-    let &min = input.iter().min().unwrap();
-    let &max = input.iter().max().unwrap();
+fn median(arr: &[u32]) -> u32 {
+    let mut data = arr.to_vec();
+    data.sort_unstable();
+    data[data.len() / 2]
+}
 
-    (min..max)
-        .map(|position| project_fuel_consumption(input, position, linear_fuel_consumption))
-        .min()
-        .unwrap()
+fn mean(arr: &[u32]) -> u32 {
+    let sum: u32 = arr.iter().sum();
+    sum / u32::try_from(arr.len()).unwrap()
+}
+
+pub fn part1(input: &[u32]) -> u32 {
+    let target = median(input);
+    get_fuel_consumption(input, target, linear_cost)
 }
 
 pub fn part2(input: &[u32]) -> u32 {
-    let &min = input.iter().min().unwrap();
-    let &max = input.iter().max().unwrap();
-
-    (min..max)
-        .map(|position| project_fuel_consumption(input, position, triangle_fuel_consumption))
-        .min()
-        .unwrap()
+    let target = mean(input);
+    get_fuel_consumption(input, target, triangle_cost)
 }
