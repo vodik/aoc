@@ -39,20 +39,30 @@ impl Segment {
             let y0 = i32::min(self.0.y, self.1.y);
             let y1 = i32::max(self.0.y, self.1.y);
 
-            SegmentIter::Vertical { y_iter: (y0..=y1), x }
+            SegmentIter::Vertical {
+                y_iter: (y0..=y1),
+                x,
+            }
         } else if self.0.y == self.1.y {
             let x0 = i32::min(self.0.x, self.1.x);
             let x1 = i32::max(self.0.x, self.1.x);
             let y = self.0.y;
 
-            SegmentIter::Horizontal { x_iter: (x0..=x1), y }
+            SegmentIter::Horizontal {
+                x_iter: (x0..=x1),
+                y,
+            }
         } else {
             let x0 = i32::min(self.0.x, self.1.x);
             let x1 = i32::max(self.0.x, self.1.x);
             let m = (self.1.y - self.0.y) / (self.1.x - self.0.x);
             let b = self.0.y - m * self.0.x;
 
-            SegmentIter::Sloped { x_iter: (x0..=x1), m, b }
+            SegmentIter::Sloped {
+                x_iter: (x0..=x1),
+                m,
+                b,
+            }
         }
     }
 }
@@ -86,9 +96,13 @@ impl Iterator for SegmentIter {
                 let x = x_iter.next()?;
                 Some(Point::new(x, y))
             }
-            SegmentIter::Sloped { ref mut x_iter, m, b } => {
+            SegmentIter::Sloped {
+                ref mut x_iter,
+                m,
+                b,
+            } => {
                 let x = x_iter.next()?;
-                let y = x * m + b;
+                let y = m * x + b;
                 Some(Point::new(x, y))
             }
         }
@@ -132,7 +146,7 @@ fn count_points_of_interest(points: impl Iterator<Item = Point>) -> usize {
     let mut points_of_interest = 0;
 
     for Point { x, y } in points {
-        let index = x as usize * 1000 + y as usize;
+        let index = usize::try_from(x).unwrap() * 1000 + usize::try_from(y).unwrap();
         let count = &mut map[index];
 
         *count = count.saturating_add(1);
