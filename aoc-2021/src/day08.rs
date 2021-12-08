@@ -9,7 +9,7 @@ pub struct Entry {
 fn parse_segments(input: &str) -> Vec<Pattern> {
     input
         .split(' ')
-        .map(|segment| {
+        .flat_map(|segment| {
             segment
                 .as_bytes()
                 .iter()
@@ -24,7 +24,6 @@ fn parse_segments(input: &str) -> Vec<Pattern> {
                     _ => unreachable!(),
                 })
                 .reduce(|acc, bit| acc | bit)
-                .unwrap()
         })
         .collect()
 }
@@ -50,7 +49,7 @@ pub fn part1(input: &[Entry]) -> usize {
         .count()
 }
 
-pub fn map_digits(possibilities: &[Pattern]) -> [u8; 1 << 7] {
+fn map_digits(possibilities: &[Pattern]) -> [u8; 1 << 7] {
     let mut one = 0;
     let mut four = 0;
 
@@ -67,13 +66,11 @@ pub fn map_digits(possibilities: &[Pattern]) -> [u8; 1 << 7] {
     }
 
     let mut map = [0; 1 << 7];
-    map[one as usize] = 1;
-    map[four as usize] = 4;
-
     for &pattern in possibilities {
-        let digit = match pattern.count_ones() {
-            2 | 4 => continue,
+        map[pattern as usize] = match pattern.count_ones() {
+            2 => 1,
             3 => 7,
+            4 => 4,
             6 if (pattern & !one).count_ones() == 5 => 6,
             6 if (pattern & !four).count_ones() == 3 => 0,
             6 => 9,
@@ -82,14 +79,11 @@ pub fn map_digits(possibilities: &[Pattern]) -> [u8; 1 << 7] {
             _ if (pattern & four).count_ones() == 2 => 2,
             _ => 5,
         };
-
-        map[pattern as usize] = digit;
     }
-
     map
 }
 
-pub fn decode(entry: &Entry) -> u32 {
+fn decode(entry: &Entry) -> u32 {
     let map = map_digits(&entry.signal);
 
     entry
