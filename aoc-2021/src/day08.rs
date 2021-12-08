@@ -1,15 +1,14 @@
-use std::collections::HashSet;
-
 #[derive(Debug)]
 pub struct Entry {
-    signal: Vec<HashSet<Segment>>,
-    output: Vec<HashSet<Segment>>,
+    signal: Vec<Segments>,
+    output: Vec<Segments>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Segment(u8);
+// #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+type Segments = u8;
+// pub struct Segment(u8);
 
-fn parse2(input: &str) -> Vec<HashSet<Segment>> {
+fn parse2(input: &str) -> Vec<Segments> {
     input
         .split(' ')
         .map(|segment| {
@@ -17,16 +16,17 @@ fn parse2(input: &str) -> Vec<HashSet<Segment>> {
                 .as_bytes()
                 .iter()
                 .map(|b| match b {
-                    b'a' => Segment(1),
-                    b'b' => Segment(2),
-                    b'c' => Segment(3),
-                    b'd' => Segment(4),
-                    b'e' => Segment(5),
-                    b'f' => Segment(6),
-                    b'g' => Segment(7),
+                    b'a' => 1 << 0,
+                    b'b' => 1 << 1,
+                    b'c' => 1 << 2,
+                    b'd' => 1 << 3,
+                    b'e' => 1 << 4,
+                    b'f' => 1 << 5,
+                    b'g' => 1 << 6,
                     _ => unreachable!(),
                 })
-                .collect()
+                .reduce(|acc, bit| acc | bit)
+                .unwrap()
         })
         .collect()
 }
@@ -48,62 +48,68 @@ pub fn part1(input: &[Entry]) -> usize {
     input
         .iter()
         .flat_map(|entry| &entry.output)
-        .filter(|&segment| [2, 3, 4, 7].contains(&segment.len()))
+        .filter(|&segment| matches!(segment.count_ones(), 2 | 3 | 4 | 7))
         .count()
 }
 
-pub fn map_digits(mut init_pos: Vec<HashSet<Segment>>) -> Vec<HashSet<Segment>> {
-    let mut true_pos = vec![init_pos[0].clone(); 10];
+pub fn map_digits(mut possibilities: Vec<Segments>) -> [Segments; 10] {
+    let mut known = [0; 10];
 
-    for uniq in [(1, 2), (7, 3), (4, 4), (8, 7)] {
-        true_pos[uniq.0] =
-            init_pos.remove(init_pos.iter().position(|x| x.len() == uniq.1).unwrap());
+    for (pos, count) in [(1, 2), (7, 3), (4, 4), (8, 7)] {
+        known[pos] = possibilities.remove(
+            possibilities
+                .iter()
+                .position(|x| x.count_ones() == count)
+                .unwrap(),
+        );
     }
 
-    true_pos[6] = init_pos.remove(
-        init_pos
+    known[6] = possibilities.remove(
+        possibilities
             .iter()
-            .position(|x| x.len() == 6 && x.difference(&true_pos[1]).count() == 5)
+            .position(|x| x.count_ones() == 6 && (x & !known[1]).count_ones() == 5)
             .unwrap(),
     );
 
-    true_pos[0] = init_pos.remove(
-        init_pos
+    known[0] = possibilities.remove(
+        possibilities
             .iter()
-            .position(|x| x.len() == 6 && x.difference(&true_pos[4]).count() == 3)
+            .position(|x| x.count_ones() == 6 && (x & !known[4]).count_ones() == 3)
             .unwrap(),
     );
 
-    true_pos[9] = init_pos.remove(init_pos.iter().position(|x| x.len() == 6).unwrap());
-
-    true_pos[2] = init_pos.remove(
-        init_pos
+    known[9] = possibilities.remove(
+        possibilities
             .iter()
-            .position(|e| e.intersection(&true_pos[4]).count() == 2)
+            .position(|x| x.count_ones() == 6)
             .unwrap(),
     );
 
-    true_pos[3] = init_pos.remove(
-        init_pos
+    known[2] = possibilities.remove(
+        possibilities
             .iter()
-            .position(|e| e.intersection(&true_pos[1]).count() == 2)
+            .position(|e| (e & known[4]).count_ones() == 2)
             .unwrap(),
     );
 
-    true_pos[5] = init_pos.pop().unwrap();
-    true_pos
+    known[3] = possibilities.remove(
+        possibilities
+            .iter()
+            .position(|e| (e & known[1]).count_ones() == 2)
+            .unwrap(),
+    );
+
+    known[5] = possibilities.pop().unwrap();
+    known
 }
 
 pub fn decode(entry: &Entry) -> u32 {
-    let init_pos: Vec<HashSet<Segment>> = entry.signal.clone();
-
-    let map = map_digits(init_pos);
+    let map = map_digits(entry.signal.clone());
 
     entry
         .output
         .iter()
-        .map(|x| x.iter().copied().collect::<HashSet<_>>())
-        .map(|x| map.iter().position(|y| &x == y).unwrap() as u32)
+        .map(|&x| map.iter().position(|&y| x == y).unwrap() as u32)
         .fold(0, |acc, value| acc * 10 + value)
 }
 
