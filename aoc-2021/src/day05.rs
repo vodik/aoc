@@ -7,7 +7,7 @@ use nom::{
     sequence::{separated_pair, terminated},
     Finish, IResult,
 };
-use std::{ops::RangeInclusive, str::FromStr};
+use std::{ops::Range, str::FromStr};
 
 #[derive(Debug)]
 pub struct Point {
@@ -37,29 +37,29 @@ impl Segment {
         if self.0.x == self.1.x {
             let x = self.0.x;
             let y0 = i32::min(self.0.y, self.1.y);
-            let y1 = i32::max(self.0.y, self.1.y);
+            let y1 = i32::max(self.0.y, self.1.y) + 1;
 
             SegmentIter::Vertical {
-                y_iter: (y0..=y1),
+                y_iter: (y0..y1),
                 x,
             }
         } else if self.0.y == self.1.y {
             let x0 = i32::min(self.0.x, self.1.x);
-            let x1 = i32::max(self.0.x, self.1.x);
+            let x1 = i32::max(self.0.x, self.1.x) + 1;
             let y = self.0.y;
 
             SegmentIter::Horizontal {
-                x_iter: (x0..=x1),
+                x_iter: (x0..x1),
                 y,
             }
         } else {
             let x0 = i32::min(self.0.x, self.1.x);
-            let x1 = i32::max(self.0.x, self.1.x);
+            let x1 = i32::max(self.0.x, self.1.x) + 1;
             let m = (self.1.y - self.0.y) / (self.1.x - self.0.x);
             let b = self.0.y - m * self.0.x;
 
             SegmentIter::Sloped {
-                x_iter: (x0..=x1),
+                x_iter: (x0..x1),
                 m,
                 b,
             }
@@ -70,14 +70,14 @@ impl Segment {
 enum SegmentIter {
     Vertical {
         x: i32,
-        y_iter: RangeInclusive<i32>,
+        y_iter: Range<i32>,
     },
     Horizontal {
-        x_iter: RangeInclusive<i32>,
+        x_iter: Range<i32>,
         y: i32,
     },
     Sloped {
-        x_iter: RangeInclusive<i32>,
+        x_iter: Range<i32>,
         m: i32,
         b: i32,
     },
