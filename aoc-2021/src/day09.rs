@@ -1,6 +1,31 @@
-use std::{cmp::Reverse, iter, num::NonZeroUsize};
+use std::{collections::BinaryHeap, num::NonZeroUsize};
 
-pub type Grid = (Vec<u8>, usize);
+#[derive(Debug)]
+pub struct Grid(Vec<u8>, usize);
+
+impl Grid {
+    fn new(map: &[u8], width: usize) -> Self {
+        let height = map.len() / width;
+
+        let new_width = width + 2;
+        let new_height = height + 2;
+        let mut new_map = vec![9; new_width * new_height];
+
+        let offset = new_width + 1;
+        for (line, chunk) in map.chunks(width).enumerate() {
+            let pos = line * new_width + offset;
+            new_map[pos..pos + width].copy_from_slice(chunk);
+        }
+
+        Self(new_map, new_width)
+    }
+
+    fn neighbours(&self, pos: usize) -> impl Iterator<Item = (usize, u8)> + '_ {
+        [pos - 1, pos + 1, pos + self.1, pos - self.1]
+            .into_iter()
+            .flat_map(|pos| self.0.get(pos).map(|&cell| (pos, cell)))
+    }
+}
 
 pub fn parse_input(input: &str) -> Grid {
     let mut width: Option<NonZeroUsize> = None;
@@ -15,74 +40,48 @@ pub fn parse_input(input: &str) -> Grid {
         })
         .collect();
 
-    (grid, width.unwrap().get())
+    Grid::new(&grid, width.unwrap().get())
 }
 
-fn neighbours(grid: &Grid, pos: usize) -> impl Iterator<Item = (usize, u8)> + '_ {
-    let mut kind = 0;
-    iter::from_fn(move || {
-        if kind == 0 {
-            kind += 1;
-            if pos % grid.1 != 0 {
-                return Some(pos - 1);
-            }
-        }
-        if kind == 1 {
-            kind += 1;
-            if pos % grid.1 != grid.1 - 1 {
-                return Some(pos + 1);
-            }
-        }
-        if kind == 2 {
-            kind += 1;
-            return Some(pos + grid.1);
-        }
-        if kind == 3 {
-            kind += 1;
-            return Some(pos - grid.1);
-        }
-        None
-    })
-    .flat_map(|pos| grid.0.get(pos).map(|&cell| (pos, cell)))
-}
-
-pub fn part1(input @ (map, _): &Grid) -> usize {
-    map.iter()
+pub fn part1(grid: &Grid) -> usize {
+    grid.0
+        .iter()
         .enumerate()
-        .filter(|&(pos, &cell)| neighbours(input, pos).all(|(_, neighbour)| neighbour > cell))
+        .filter(|&(_, &cell)| cell != 9)
+        .filter(|&(pos, &cell)| grid.neighbours(pos).all(|(_, neighbour)| neighbour > cell))
         .map(|(_, &cell)| cell as usize + 1)
         .sum()
 }
 
-pub fn part2(input: &Grid) -> usize {
-    let mut basins: Vec<usize> = Vec::new();
-    let mut visited = vec![false; input.0.len()];
+pub fn part2(grid: &Grid) -> usize {
+    let mut basins: BinaryHeap<_> = grid
+        .0
+        .iter()
+        .enumerate()
+        .filter(|&(_, &cell)| cell != 9)
+        .scan(vec![false; grid.0.len()], |visited, (pos, _)| {
+            let mut basin = 0;
 
-    for (pos, &cell) in input.0.iter().enumerate() {
-        if visited[pos] || cell == 9 {
-            continue;
-        }
+            if !visited[pos] {
+                let mut stack = vec![pos];
+                while let Some(pos) = stack.pop() {
+                    if visited[pos] {
+                        continue;
+                    }
 
-        let mut basin = 0;
-        let mut stack = vec![pos];
-
-        while let Some(pos) = stack.pop() {
-            if visited[pos] {
-                continue;
+                    visited[pos] = true;
+                    basin += 1;
+                    stack.extend(
+                        grid.neighbours(pos)
+                            .filter_map(|(neighbour, cell)| (cell != 9).then(|| neighbour)),
+                    );
+                }
             }
 
-            visited[pos] = true;
-            basin += 1;
+            Some(basin)
+        })
+        .filter(|&basin| basin > 0)
+        .collect();
 
-            stack.extend(
-                neighbours(input, pos)
-                    .filter_map(|(neighbour, cell)| (cell != 9).then(|| neighbour)),
-            );
-        }
-
-        basins.push(basin);
-    }
-
-    basins.sort_unstable_by_key(|&k| Reverse(k));
-    basins[0] * basins[1] * basins[2]
+    (0..3).flat_map(|_| basins.pop()).product()
 }
