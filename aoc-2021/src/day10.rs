@@ -10,7 +10,7 @@ enum Expr {
 
 impl Expr {
     fn parse(expr: &[u8]) -> Self {
-        let mut stack = Vec::new();
+        let mut stack = Vec::with_capacity(100);
         for &token in expr {
             match token {
                 b'(' | b'[' | b'{' | b'<' => stack.push(token),
