@@ -68,19 +68,9 @@ impl Segment {
 }
 
 enum SegmentIter {
-    Vertical {
-        x: i32,
-        y_iter: Range<i32>,
-    },
-    Horizontal {
-        x_iter: Range<i32>,
-        y: i32,
-    },
-    Sloped {
-        x_iter: Range<i32>,
-        m: i32,
-        b: i32,
-    },
+    Vertical { x: i32, y_iter: Range<i32> },
+    Horizontal { x_iter: Range<i32>, y: i32 },
+    Sloped { x_iter: Range<i32>, m: i32, b: i32 },
 }
 
 impl Iterator for SegmentIter {
