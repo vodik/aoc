@@ -12,11 +12,17 @@ pub fn parse_input(input: &str) -> Vec<u8> {
         .collect()
 }
 
-struct Map(Vec<u8>);
+struct Map {
+    map: Vec<u8>,
+    stack: Vec<u32>,
+}
 
 impl FromIterator<u8> for Map {
     fn from_iter<T: IntoIterator<Item = u8>>(iter: T) -> Self {
-        Self(iter.into_iter().collect())
+        Self {
+            map: iter.into_iter().collect(),
+            stack: Vec::with_capacity(350),
+        }
     }
 }
 
@@ -51,35 +57,35 @@ fn neighbours(point: u32) -> [Option<u32>; 8] {
 
 impl Map {
     fn step(&mut self) -> usize {
-        for cell in self.0.iter_mut() {
+        for cell in self.map.iter_mut() {
             *cell += 1;
         }
 
         let mut flashes = 0;
         let mut has_flashed = vec![false; (WIDTH * WIDTH) as usize];
+
         for point in 0..(WIDTH * WIDTH) {
-            let energy = self.0[point as usize];
-            if has_flashed[point as usize] || energy != 10 {
+            let energy = self.map[point as usize];
+            if energy != 10 || has_flashed[point as usize] {
                 continue;
             }
 
-            let mut stack = Vec::with_capacity(100);
-            stack.push(point);
-
-            while let Some(point) = stack.pop() {
+            self.stack.push(point);
+            while let Some(point) = self.stack.pop() {
                 if has_flashed[point as usize] {
                     continue;
                 }
 
-                let energy = &mut self.0[point as usize];
+                let energy = &mut self.map[point as usize];
                 *energy += 1;
 
                 if *energy >= 10 {
-                    has_flashed[point as usize] = true;
-                    flashes += 1;
                     *energy = 0;
+                    flashes += 1;
+                    has_flashed[point as usize] = true;
 
-                    stack.extend(neighbours(point).iter().copied().flatten())
+                    self.stack
+                        .extend(neighbours(point).iter().copied().flatten());
                 }
             }
         }
