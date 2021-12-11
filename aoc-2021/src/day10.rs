@@ -50,7 +50,7 @@ pub fn part2(input: &[&[u8]]) -> u64 {
         })
         .map(|stack| {
             stack
-                .into_iter()
+                .iter()
                 .rev()
                 .map(|c| match c {
                     b'(' => 1,

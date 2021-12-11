@@ -82,7 +82,7 @@ fn board(input: &str) -> IResult<&str, Board> {
     map(
         separated_list1(tag("\n"), separated_list1(tag(" "), number)),
         |numbers: Vec<Vec<u16>>| {
-            let numbers = numbers.into_iter().flatten().collect::<Vec<u16>>();
+            let numbers: Vec<u16> = numbers.iter().flatten().copied().collect();
             numbers.try_into().unwrap()
         },
     )(input)
