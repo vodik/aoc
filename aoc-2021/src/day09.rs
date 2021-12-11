@@ -59,27 +59,30 @@ pub fn part2(grid: &Grid) -> usize {
         .iter()
         .enumerate()
         .filter(|&(_, &cell)| cell != 9)
-        .scan(vec![false; grid.0.len()], |visited, (pos, _)| {
-            let mut basin = 0;
+        .scan(
+            (vec![false; grid.0.len()], Vec::with_capacity(100)),
+            |(visited, stack), (pos, _)| {
+                let mut basin = 0;
 
-            if !visited[pos] {
-                let mut stack = vec![pos];
-                while let Some(pos) = stack.pop() {
-                    if visited[pos] {
-                        continue;
+                if !visited[pos] {
+                    stack.push(pos);
+                    while let Some(pos) = stack.pop() {
+                        if visited[pos] {
+                            continue;
+                        }
+
+                        visited[pos] = true;
+                        basin += 1;
+                        stack.extend(
+                            grid.neighbours(pos)
+                                .filter_map(|(neighbour, cell)| (cell != 9).then(|| neighbour)),
+                        );
                     }
-
-                    visited[pos] = true;
-                    basin += 1;
-                    stack.extend(
-                        grid.neighbours(pos)
-                            .filter_map(|(neighbour, cell)| (cell != 9).then(|| neighbour)),
-                    );
                 }
-            }
 
-            Some(basin)
-        })
+                Some(basin)
+            },
+        )
         .filter(|&basin| basin > 0)
         .collect();
 

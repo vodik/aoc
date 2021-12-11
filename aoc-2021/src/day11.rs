@@ -64,7 +64,7 @@ impl Map {
         }));
 
         let mut events = 0;
-        let mut flashed = vec![false; (WIDTH * WIDTH) as usize];
+        let mut flashed = [false; (WIDTH * WIDTH) as usize];
         while let Some(point) = self.stack.pop() {
             if flashed[point as usize] {
                 continue;
