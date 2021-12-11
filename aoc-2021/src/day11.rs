@@ -57,40 +57,32 @@ fn neighbours(point: u32) -> [Option<u32>; 8] {
 
 impl Map {
     fn step(&mut self) -> usize {
-        for cell in self.map.iter_mut() {
-            *cell += 1;
-        }
+        self.stack.extend((0..(WIDTH * WIDTH)).filter(|&point| {
+            let energy = &mut self.map[point as usize];
+            *energy += 1;
+            *energy > 9
+        }));
 
-        let mut flashes = 0;
-        let mut has_flashed = vec![false; (WIDTH * WIDTH) as usize];
-
-        for point in 0..(WIDTH * WIDTH) {
-            let energy = self.map[point as usize];
-            if energy != 10 || has_flashed[point as usize] {
+        let mut events = 0;
+        let mut flashed = vec![false; (WIDTH * WIDTH) as usize];
+        while let Some(point) = self.stack.pop() {
+            if flashed[point as usize] {
                 continue;
             }
 
-            self.stack.push(point);
-            while let Some(point) = self.stack.pop() {
-                if has_flashed[point as usize] {
-                    continue;
-                }
+            let energy = &mut self.map[point as usize];
+            *energy += 1;
 
-                let energy = &mut self.map[point as usize];
-                *energy += 1;
-
-                if *energy >= 10 {
-                    *energy = 0;
-                    flashes += 1;
-                    has_flashed[point as usize] = true;
-
-                    self.stack
-                        .extend(neighbours(point).iter().copied().flatten());
-                }
+            if *energy > 9 {
+                *energy = 0;
+                events += 1;
+                flashed[point as usize] = true;
+                self.stack
+                    .extend(neighbours(point).iter().flatten().copied());
             }
         }
 
-        flashes
+        events
     }
 }
 
