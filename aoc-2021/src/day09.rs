@@ -1,7 +1,10 @@
 use std::{collections::BinaryHeap, num::NonZeroUsize};
 
 #[derive(Debug)]
-pub struct Grid(Vec<u8>, usize);
+pub struct Grid {
+    data: Vec<u8>,
+    width: usize,
+}
 
 impl Grid {
     fn new(map: &[u8], width: usize) -> Self {
@@ -17,13 +20,16 @@ impl Grid {
             new_map[pos..pos + width].copy_from_slice(chunk);
         }
 
-        Self(new_map, new_width)
+        Self {
+            data: new_map,
+            width: new_width,
+        }
     }
 
     fn neighbours(&self, pos: usize) -> impl Iterator<Item = (usize, u8)> + '_ {
-        [pos - 1, pos + 1, pos + self.1, pos - self.1]
+        [pos - 1, pos + 1, pos + self.width, pos - self.width]
             .into_iter()
-            .flat_map(|pos| self.0.get(pos).map(|&cell| (pos, cell)))
+            .flat_map(|pos| self.data.get(pos).map(|&cell| (pos, cell)))
     }
 }
 
@@ -44,28 +50,31 @@ pub fn parse_input(input: &str) -> Grid {
 }
 
 pub fn part1(grid: &Grid) -> usize {
-    grid.0
+    grid.data
         .iter()
         .enumerate()
-        .filter(|&(_, &cell)| cell != 9)
-        .filter(|&(pos, &cell)| grid.neighbours(pos).all(|(_, neighbour)| neighbour > cell))
-        .map(|(_, &cell)| cell as usize + 1)
+        .filter_map(|(pos, &cell)| {
+            (cell != 9 && grid.neighbours(pos).all(|(_, neighbour)| neighbour > cell))
+                .then(|| cell as usize + 1)
+        })
         .sum()
 }
 
 pub fn part2(grid: &Grid) -> usize {
     let mut basins: BinaryHeap<_> = grid
-        .0
+        .data
         .iter()
         .enumerate()
-        .filter(|&(_, &cell)| cell != 9)
+        .filter(|&(_, cell)| *cell != 9)
         .scan(
-            (vec![false; grid.0.len()], Vec::with_capacity(100)),
+            (vec![false; grid.data.len()], Vec::with_capacity(100)),
             |(visited, stack), (pos, _)| {
-                let mut basin = 0;
-
-                if !visited[pos] {
+                if visited[pos] {
+                    Some(0)
+                } else {
                     stack.push(pos);
+
+                    let mut basin = 0;
                     while let Some(pos) = stack.pop() {
                         if visited[pos] {
                             continue;
@@ -73,14 +82,15 @@ pub fn part2(grid: &Grid) -> usize {
 
                         visited[pos] = true;
                         basin += 1;
+
                         stack.extend(
                             grid.neighbours(pos)
                                 .filter_map(|(neighbour, cell)| (cell != 9).then(|| neighbour)),
                         );
                     }
-                }
 
-                Some(basin)
+                    Some(basin)
+                }
             },
         )
         .filter(|&basin| basin > 0)
