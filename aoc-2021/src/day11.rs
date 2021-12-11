@@ -1,69 +1,86 @@
-use std::collections::{HashMap, HashSet};
+use std::iter;
 
-const WIDTH: i32 = 10;
-type Point = (i32, i32);
+const WIDTH: u32 = 10;
 
-pub fn parse_input(input: &str) -> Vec<(Point, u8)> {
-    let mut map = Vec::new();
-    for (x, line) in input.lines().enumerate() {
-        for (y, char) in line.chars().enumerate() {
-            map.push(((x as i32, y as i32), char.to_digit(10).unwrap() as u8));
-        }
-    }
-    map
+pub fn parse_input(input: &str) -> Vec<u8> {
+    input
+        .lines()
+        .flat_map(|line| {
+            line.chars()
+                .map(|char| u8::try_from(char.to_digit(10).unwrap()).unwrap())
+        })
+        .collect()
 }
 
-struct Map(HashMap<Point, u8>);
+struct Map(Vec<u8>);
 
-impl FromIterator<(Point, u8)> for Map {
-    fn from_iter<T: IntoIterator<Item = (Point, u8)>>(iter: T) -> Self {
+impl FromIterator<u8> for Map {
+    fn from_iter<T: IntoIterator<Item = u8>>(iter: T) -> Self {
         Self(iter.into_iter().collect())
     }
 }
 
+fn neighbours(point: u32) -> [Option<u32>; 8] {
+    [
+        point
+            .checked_sub(1)
+            .filter(|p| p % WIDTH != WIDTH - 1)
+            .and_then(|p| p.checked_sub(WIDTH)),
+        point.checked_sub(WIDTH),
+        point
+            .checked_add(1)
+            .filter(|p| p % WIDTH != 0)
+            .and_then(|p| p.checked_sub(WIDTH)),
+        point.checked_sub(1).filter(|p| p % WIDTH != WIDTH - 1),
+        point.checked_add(1).filter(|p| p % WIDTH != 0),
+        point
+            .checked_sub(1)
+            .filter(|p| p % WIDTH != WIDTH - 1)
+            .and_then(|p| p.checked_add(WIDTH)),
+        point.checked_add(WIDTH),
+        point
+            .checked_add(1)
+            .filter(|p| p % WIDTH != 0)
+            .and_then(|p| p.checked_add(WIDTH)),
+    ]
+}
+
 impl Map {
     fn step(&mut self) -> usize {
-        for cell in self.0.values_mut() {
+        for cell in self.0.iter_mut() {
             *cell += 1;
         }
 
         let mut flashes = 0;
-        let mut has_flashed = HashSet::new();
-        for x in 0..WIDTH {
-            for y in 0..WIDTH {
-                let point = (x, y);
+        let mut has_flashed = vec![false; (WIDTH * WIDTH) as usize];
+        for point in 0..(WIDTH * WIDTH) {
+            let energy = self.0[point as usize];
+            if has_flashed[point as usize] || energy != 10 {
+                continue;
+            }
 
-                let energy = self.0.get(&point).unwrap();
-                if has_flashed.contains(&point) || *energy != 10 {
+            let mut stack = Vec::with_capacity(100);
+            stack.push(point);
+
+            while let Some(point) = stack.pop() {
+                if has_flashed[point as usize] {
                     continue;
                 }
 
-                let mut stack = Vec::with_capacity(100);
-                stack.push(point);
+                let energy = &mut self.0[point as usize];
+                *energy += 1;
 
-                while let Some(point) = stack.pop() {
-                    if has_flashed.contains(&point) {
-                        continue;
-                    }
+                if *energy >= 10 {
+                    has_flashed[point as usize] = true;
+                    flashes += 1;
+                    *energy = 0;
 
-                    if let Some(energy) = self.0.get_mut(&point) {
-                        *energy = u8::min(*energy + 1, 10);
-                        if *energy == 10 {
-
-                            *energy = 0;
-                            flashes += 1;
-                            has_flashed.insert(point);
-
-                            for i in -1..=1 {
-                                for j in -1..=1 {
-                                    let new_point = (point.0 + i, point.1 + j);
-                                    if new_point != point && self.0.get(&new_point).is_some() {
-                                        stack.push(new_point);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    stack.extend(
+                        neighbours(point)
+                            .into_iter()
+                            .flatten()
+                            .filter(|&new_point| self.0.get(new_point as usize).is_some()),
+                    )
                 }
             }
         }
@@ -72,15 +89,14 @@ impl Map {
     }
 }
 
-pub fn part1(input: &[(Point, u8)]) -> usize {
-    let map: Map = input.iter().copied().collect();
-    (0..100).scan(map, |map, _| Some(map.step())).sum()
+pub fn part1(input: &[u8]) -> usize {
+    let mut map: Map = input.iter().copied().collect();
+    iter::from_fn(move || Some(map.step())).take(100).sum()
 }
 
-pub fn part2(input: &[(Point, u8)]) -> usize {
-    let map: Map = input.iter().copied().collect();
-    (0..)
-        .scan(map, |map, _| Some(map.step()))
+pub fn part2(input: &[u8]) -> usize {
+    let mut map: Map = input.iter().copied().collect();
+    iter::from_fn(move || Some(map.step()))
         .take_while(|&flashes| flashes != (WIDTH * WIDTH) as usize)
         .count()
         + 1
