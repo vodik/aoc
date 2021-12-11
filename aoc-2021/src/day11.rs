@@ -36,12 +36,16 @@ fn neighbours(point: u32) -> [Option<u32>; 8] {
         point
             .checked_sub(1)
             .filter(|p| p % WIDTH != WIDTH - 1)
-            .and_then(|p| p.checked_add(WIDTH)),
-        point.checked_add(WIDTH),
+            .and_then(|p| p.checked_add(WIDTH))
+            .filter(|&p| p < (WIDTH * WIDTH) as u32),
+        point
+            .checked_add(WIDTH)
+            .filter(|&p| p < (WIDTH * WIDTH) as u32),
         point
             .checked_add(1)
             .filter(|p| p % WIDTH != 0)
-            .and_then(|p| p.checked_add(WIDTH)),
+            .and_then(|p| p.checked_add(WIDTH))
+            .filter(|&p| p < (WIDTH * WIDTH) as u32),
     ]
 }
 
@@ -75,12 +79,7 @@ impl Map {
                     flashes += 1;
                     *energy = 0;
 
-                    stack.extend(
-                        neighbours(point)
-                            .into_iter()
-                            .flatten()
-                            .filter(|&new_point| self.0.get(new_point as usize).is_some()),
-                    )
+                    stack.extend(neighbours(point).iter().copied().flatten())
                 }
             }
         }
