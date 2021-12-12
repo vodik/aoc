@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Vertex {
     Start,
@@ -67,10 +65,9 @@ impl Graph {
 
 fn paths(graph: &Graph, vertex: usize, charge: bool) -> usize {
     let mut paths = 0;
-    let visited = Rc::new(vec![false; graph.verticies.len()]);
-    let mut stack: Vec<(usize, Rc<Vec<bool>>, bool)> = graph.edges[vertex]
+    let mut stack: Vec<(usize, u32, bool)> = graph.edges[vertex]
         .iter()
-        .map(|&vertex| (vertex, visited.clone(), charge))
+        .map(|&vertex| (vertex, 0, charge))
         .collect();
 
     while let Some((vertex, visited, charge)) = stack.pop() {
@@ -82,26 +79,23 @@ fn paths(graph: &Graph, vertex: usize, charge: bool) -> usize {
             Vertex::BigCave(_) => stack.extend(
                 graph.edges[vertex]
                     .iter()
-                    .map(|&vertex| (vertex, visited.clone(), charge)),
+                    .map(|&vertex| (vertex, visited, charge)),
             ),
             Vertex::SmallCave(_) => {
-                if visited[vertex] {
+                if visited & 1 << vertex != 0 {
                     if charge {
                         stack.extend(
                             graph.edges[vertex]
                                 .iter()
-                                .map(|&vertex| (vertex, visited.clone(), false)),
+                                .map(|&vertex| (vertex, visited, false)),
                         );
                     }
                 } else {
-                    let mut visited = Vec::clone(&visited);
-                    visited[vertex] = true;
-                    let visited = Rc::new(visited);
-
+                    let visited = visited | 1 << vertex;
                     stack.extend(
                         graph.edges[vertex]
                             .iter()
-                            .map(|&vertex| (vertex, visited.clone(), charge)),
+                            .map(|&vertex| (vertex, visited, charge)),
                     );
                 }
             }
