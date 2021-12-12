@@ -15,10 +15,10 @@ impl Vertex {
         match s {
             "start" => Vertex::Start,
             "end" => Vertex::End,
-            label if label.bytes().all(|b| (b'A'..=b'Z').contains(&b)) => {
+            label if label.bytes().all(|b| b.is_ascii_uppercase()) => {
                 Vertex::BigCave(label.to_string())
             }
-            label if label.bytes().all(|b| (b'a'..=b'z').contains(&b)) => {
+            label if label.bytes().all(|b| b.is_ascii_lowercase()) => {
                 Vertex::SmallCave(label.to_string())
             }
             _ => unreachable!(),
