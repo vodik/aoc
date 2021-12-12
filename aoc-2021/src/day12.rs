@@ -1,4 +1,8 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+use std::collections::HashMap;
+
+type NodeIdx = usize;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Vertex {
     Start,
     End,
@@ -7,124 +11,122 @@ pub enum Vertex {
 }
 
 impl Vertex {
-    fn from(s: &str) -> Option<Self> {
+    fn from(s: &str) -> Self {
         match s {
-            "start" => Some(Vertex::Start),
-            "end" => Some(Vertex::End),
-            s if s.bytes().all(|b| (b'A'..=b'Z').contains(&b)) => {
-                Some(Vertex::BigCave(s.to_string()))
+            "start" => Vertex::Start,
+            "end" => Vertex::End,
+            label if label.bytes().all(|b| (b'A'..=b'Z').contains(&b)) => {
+                Vertex::BigCave(label.to_string())
             }
-            s if s.bytes().all(|b| (b'a'..=b'z').contains(&b)) => {
-                Some(Vertex::SmallCave(s.to_string()))
+            label if label.bytes().all(|b| (b'a'..=b'z').contains(&b)) => {
+                Vertex::SmallCave(label.to_string())
             }
-            _ => None,
+            _ => unreachable!(),
         }
     }
 }
 
-pub fn parse_input(input: &str) -> Vec<(Vertex, Vertex)> {
+#[derive(Debug, Default)]
+pub struct Graph {
+    vertices: Vec<(Vertex, Vec<NodeIdx>)>,
+    start: Option<NodeIdx>,
+}
+
+impl FromIterator<(Vertex, Vertex)> for Graph {
+    fn from_iter<T: IntoIterator<Item = (Vertex, Vertex)>>(iter: T) -> Self {
+        let mut graph = Self::default();
+        let mut indicies = HashMap::new();
+
+        for (a, b) in iter {
+            let is_start = matches!(&a, Vertex::Start);
+
+            let a_idx = *indicies
+                .entry(a.clone())
+                .or_insert_with(|| graph.add_node(a));
+            let b_idx = *indicies
+                .entry(b.clone())
+                .or_insert_with(|| graph.add_node(b));
+
+            graph.add_edge(a_idx, b_idx);
+
+            if is_start {
+                graph.start = Some(a_idx);
+            }
+        }
+
+        graph
+    }
+}
+
+impl Graph {
+    fn add_node(&mut self, vertex: Vertex) -> NodeIdx {
+        let index = self.vertices.len();
+        self.vertices.push((vertex, Vec::new()));
+        index
+    }
+
+    fn add_edge(&mut self, a: NodeIdx, b: NodeIdx) {
+        self.vertices[a].1.push(b);
+        self.vertices[b].1.push(a);
+    }
+
+    fn vertex(&self, index: NodeIdx) -> &Vertex {
+        &self.vertices[index].0
+    }
+
+    fn edges(&self, index: NodeIdx) -> impl Iterator<Item = &'_ NodeIdx> + '_ {
+        self.vertices[index].1.iter()
+    }
+
+    fn paths_from(&self, index: NodeIdx, revisit: usize) -> usize {
+        let mut stack = Vec::with_capacity(30);
+        stack.extend(self.edges(index).map(|&vertex| (vertex, 0u32, revisit)));
+
+        let mut paths = 0;
+        while let Some((index, visited, revisit)) = stack.pop() {
+            match self.vertex(index) {
+                Vertex::Start => {}
+                Vertex::End => {
+                    paths += 1;
+                }
+                Vertex::BigCave(_) => {
+                    stack.extend(self.edges(index).map(|&succ| (succ, visited, revisit)))
+                }
+                Vertex::SmallCave(_) => {
+                    let mask = 1 << index;
+                    if visited & mask != 0 {
+                        if revisit != 0 {
+                            stack.extend(
+                                self.edges(index).map(|&succ| (succ, visited, revisit - 1)),
+                            );
+                        }
+                    } else {
+                        stack.extend(
+                            self.edges(index)
+                                .map(|&succ| (succ, visited | mask, revisit)),
+                        );
+                    }
+                }
+            }
+        }
+        paths
+    }
+}
+
+pub fn parse_input(input: &str) -> Graph {
     input
         .lines()
         .flat_map(|line| {
             let (a, b) = line.split_once('-')?;
-            Some((Vertex::from(a).unwrap(), Vertex::from(b).unwrap()))
+            Some((Vertex::from(a), Vertex::from(b)))
         })
         .collect()
 }
 
-#[derive(Debug)]
-pub struct Graph {
-    vertices: Vec<Vertex>,
-    edges: Vec<Vec<usize>>,
+pub fn part1(graph: &Graph) -> usize {
+    graph.paths_from(graph.start.unwrap(), 0)
 }
 
-impl Graph {
-    fn from(graph: &[(Vertex, Vertex)]) -> Self {
-        let mut vertices = Vec::new();
-        for (a, b) in graph {
-            if !vertices.contains(a) {
-                vertices.push(a.clone());
-            }
-            if !vertices.contains(b) {
-                vertices.push(b.clone());
-            }
-        }
-
-        let mut edges = vec![Vec::new(); vertices.len()];
-        for (a, b) in graph {
-            let a_idx = vertices.iter().position(|v| v == a).unwrap();
-            let b_idx = vertices.iter().position(|v| v == b).unwrap();
-
-            edges[a_idx].push(b_idx);
-            edges[b_idx].push(a_idx);
-        }
-
-        Self { vertices, edges }
-    }
-}
-
-fn paths(graph: &Graph, vertex: usize, charge: bool) -> usize {
-    let mut paths = 0;
-    let mut stack: Vec<(usize, u32, bool)> = graph.edges[vertex]
-        .iter()
-        .map(|&vertex| (vertex, 0, charge))
-        .collect();
-
-    while let Some((vertex, visited, charge)) = stack.pop() {
-        match &graph.vertices[vertex] {
-            Vertex::Start => {}
-            Vertex::End => {
-                paths += 1;
-            }
-            Vertex::BigCave(_) => stack.extend(
-                graph.edges[vertex]
-                    .iter()
-                    .map(|&vertex| (vertex, visited, charge)),
-            ),
-            Vertex::SmallCave(_) => {
-                if visited & 1 << vertex != 0 {
-                    if charge {
-                        stack.extend(
-                            graph.edges[vertex]
-                                .iter()
-                                .map(|&vertex| (vertex, visited, false)),
-                        );
-                    }
-                } else {
-                    let visited = visited | 1 << vertex;
-                    stack.extend(
-                        graph.edges[vertex]
-                            .iter()
-                            .map(|&vertex| (vertex, visited, charge)),
-                    );
-                }
-            }
-        }
-    }
-
-    paths
-}
-
-pub fn part1(input: &[(Vertex, Vertex)]) -> usize {
-    let graph = Graph::from(input);
-
-    let start = graph
-        .vertices
-        .iter()
-        .position(|v| matches!(v, Vertex::Start))
-        .unwrap();
-
-    paths(&graph, start, false)
-}
-
-pub fn part2(input: &[(Vertex, Vertex)]) -> usize {
-    let graph = Graph::from(input);
-
-    let start = graph
-        .vertices
-        .iter()
-        .position(|v| matches!(v, Vertex::Start))
-        .unwrap();
-
-    paths(&graph, start, true)
+pub fn part2(graph: &Graph) -> usize {
+    graph.paths_from(graph.start.unwrap(), 1)
 }
