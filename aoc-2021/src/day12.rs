@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Vertex {
@@ -65,32 +65,50 @@ impl Graph {
     }
 }
 
-fn paths(graph: &Graph, vertex: usize, mut visited: HashSet<usize>, charge: bool) -> usize {
-    match &graph.verticies[vertex] {
-        Vertex::Start => 0,
-        Vertex::End => 1,
-        Vertex::BigCave(_) => graph.edges[vertex]
-            .iter()
-            .map(|&v| paths(graph, v, visited.clone(), charge))
-            .sum(),
-        Vertex::SmallCave(_) => {
-            if !visited.insert(vertex) {
-                if charge {
-                    graph.edges[vertex]
-                        .iter()
-                        .map(|&v| paths(graph, v, visited.clone(), false))
-                        .sum()
-                } else {
-                    0
-                }
-            } else {
+fn paths(graph: &Graph, vertex: usize, charge: bool) -> usize {
+    let mut paths = 0;
+    let visited = Rc::new(vec![false; graph.verticies.len()]);
+    let mut stack: Vec<(usize, Rc<Vec<bool>>, bool)> = graph.edges[vertex]
+        .iter()
+        .map(|&vertex| (vertex, visited.clone(), charge))
+        .collect();
+
+    while let Some((vertex, visited, charge)) = stack.pop() {
+        match &graph.verticies[vertex] {
+            Vertex::Start => {}
+            Vertex::End => {
+                paths += 1;
+            }
+            Vertex::BigCave(_) => stack.extend(
                 graph.edges[vertex]
                     .iter()
-                    .map(|&v| paths(graph, v, visited.clone(), charge))
-                    .sum()
+                    .map(|&vertex| (vertex, visited.clone(), charge)),
+            ),
+            Vertex::SmallCave(_) => {
+                if visited[vertex] {
+                    if charge {
+                        stack.extend(
+                            graph.edges[vertex]
+                                .iter()
+                                .map(|&vertex| (vertex, visited.clone(), false)),
+                        );
+                    }
+                } else {
+                    let mut visited = Vec::clone(&visited);
+                    visited[vertex] = true;
+                    let visited = Rc::new(visited);
+
+                    stack.extend(
+                        graph.edges[vertex]
+                            .iter()
+                            .map(|&vertex| (vertex, visited.clone(), charge)),
+                    );
+                }
             }
         }
     }
+
+    paths
 }
 
 pub fn part1(input: &[(Vertex, Vertex)]) -> usize {
@@ -102,10 +120,7 @@ pub fn part1(input: &[(Vertex, Vertex)]) -> usize {
         .position(|v| matches!(v, Vertex::Start))
         .unwrap();
 
-    graph.edges[start]
-        .iter()
-        .map(|&v| paths(&graph, v, HashSet::new(), false))
-        .sum()
+    paths(&graph, start, false)
 }
 
 pub fn part2(input: &[(Vertex, Vertex)]) -> usize {
@@ -117,8 +132,5 @@ pub fn part2(input: &[(Vertex, Vertex)]) -> usize {
         .position(|v| matches!(v, Vertex::Start))
         .unwrap();
 
-    graph.edges[start]
-        .iter()
-        .map(|&v| paths(&graph, v, HashSet::new(), true))
-        .sum()
+    paths(&graph, start, true)
 }
