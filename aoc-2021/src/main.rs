@@ -17,6 +17,7 @@ mod day09;
 mod day10;
 mod day11;
 mod day12;
+mod day13;
 
 fn time<F, R>(f: F) -> (Duration, R)
 where
@@ -112,6 +113,13 @@ fn main() {
     println!(":: day12");
     println!("part1: {:?}", time(|| day12::part1(&input)));
     println!("part2: {:?}", time(|| day12::part2(&input)));
+    println!();
+
+    let input = fs::read_to_string("./data/day13.txt").unwrap();
+    let input = day13::parse_input(&input);
+    println!(":: day13");
+    println!("part1: {:?}", time(|| day13::part1(&input)));
+    println!("part2: {:?}", time(|| day13::part2(&input)));
     println!();
 
     println!("total: {:?}", now.elapsed());
