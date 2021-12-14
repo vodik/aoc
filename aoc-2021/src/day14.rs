@@ -69,7 +69,7 @@ fn pairs(input: &[u8]) -> HashMap<u16, usize> {
 }
 
 fn step(pairs: &HashMap<u16, usize>, rules: &HashMap<u16, u8>) -> HashMap<u16, usize> {
-    let mut new_pairs: HashMap<u16, usize> = HashMap::new();
+    let mut new_pairs: HashMap<u16, usize> = HashMap::with_capacity(rules.len());
 
     for (pair, &count) in pairs {
         let mid = rules[pair];
@@ -90,6 +90,7 @@ fn freq(pairs: &HashMap<u16, usize>, first: u8) -> usize {
         let b = u8::try_from(pair & 0xff).unwrap();
         counts[(b - b'A') as usize] += count;
     }
+
     counts.iter().max().unwrap() - counts.iter().filter(|&&x| x > 0).min().unwrap()
 }
 
