@@ -7,12 +7,12 @@ use nom::{
     Finish, IResult,
 };
 
-fn ord(c: u8) -> usize {
+fn index(c: u8) -> usize {
     (c - b'A') as usize
 }
 
-fn encode(a: u8, b: u8) -> usize {
-    ord(a) * 26 + ord(b)
+fn index_pair(a: u8, b: u8) -> usize {
+    index(a) * 26 + index(b)
 }
 
 fn word(input: &str) -> IResult<&str, Vec<u8>> {
@@ -24,14 +24,14 @@ fn word(input: &str) -> IResult<&str, Vec<u8>> {
 
 fn parse_rule(input: &str) -> IResult<&str, (usize, usize, usize)> {
     map(separated_pair(word, tag(" -> "), word), |(pair, result)| {
-        let a = ord(pair[0]);
-        let b = ord(pair[1]);
-        let c = ord(result[0]);
+        let a = index(pair[0]);
+        let b = index(pair[1]);
+        let c = index(result[0]);
         (a * 26 + b, a * 26 + c, c * 26 + b)
     })(input)
 }
 
-fn parse_initial(input: &str) -> IResult<&str, Vec<u8>> {
+fn parse_template(input: &str) -> IResult<&str, Vec<u8>> {
     word(input)
 }
 
@@ -41,7 +41,7 @@ fn parse_rules(input: &str) -> IResult<&str, Vec<(usize, usize, usize)>> {
 
 fn parse_file(input: &str) -> IResult<&str, (Vec<u8>, Vec<(usize, usize, usize)>)> {
     terminated(
-        separated_pair(parse_initial, tag("\n\n"), parse_rules),
+        separated_pair(parse_template, tag("\n\n"), parse_rules),
         opt(tag("\n")),
     )(input)
 }
@@ -57,42 +57,55 @@ pub fn parse_input(input: &str) -> (Vec<u8>, Vec<(usize, usize, usize)>) {
     .unwrap()
 }
 
-fn init_pairs(input: &[u8]) -> Vec<usize> {
-    let mut pairs = vec![0; 26 * 26];
-
-    for window in input.windows(2) {
-        let key = encode(window[0], window[1]);
-        pairs[key] += 1
-    }
-
-    pairs
+struct Polymer<'a> {
+    pairs: Vec<usize>,
+    rules: &'a [(usize, usize, usize)],
 }
 
-fn step(pairs: &[usize], rules: &[(usize, usize, usize)]) -> Vec<usize> {
-    let mut new_pairs = vec![0; 26 * 26];
+impl<'a> Polymer<'a> {
+    fn new(template: &[u8], rules: &'a [(usize, usize, usize)]) -> Self {
+        let mut pairs = vec![0; 26 * 26];
 
-    for &(index, p1, p2) in rules {
-        let count = pairs[index];
-        new_pairs[p1] += count;
-        new_pairs[p2] += count;
+        for window in template.windows(2) {
+            let key = index_pair(window[0], window[1]);
+            pairs[key] += 1
+        }
+
+        Self { pairs, rules }
     }
 
-    new_pairs
+    fn step(&mut self) {
+        let mut new_pairs = vec![0; 26 * 26];
+
+        for &(index, p1, p2) in self.rules {
+            let count = self.pairs[index];
+            new_pairs[p1] += count;
+            new_pairs[p2] += count;
+        }
+
+        self.pairs = new_pairs;
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &usize> + '_ {
+        self.pairs.iter()
+    }
 }
 
-fn solve<const N: usize>(input: &[u8], rules: &[(usize, usize, usize)]) -> usize {
+fn solve<const N: usize>(template: &[u8], rules: &[(usize, usize, usize)]) -> usize {
+    let mut polymer = Polymer::new(template, rules);
+    for _ in 0..N {
+        polymer.step();
+    }
+
     let mut counts = [0usize; 26];
-    counts[ord(input[0])] = 1;
+    for (pair, count) in polymer.iter().enumerate() {
+        counts[pair % 26] += count;
+    }
+    counts[index(template[0])] = 1;
 
-    (0..N)
-        .fold(init_pairs(input), |pairs, _| step(&pairs, rules))
-        .iter()
-        .enumerate()
-        .for_each(|(pair, count)| {
-            counts[pair % 26] += count;
-        });
-
-    counts.iter().max().unwrap() - counts.iter().filter(|&&count| count > 0).min().unwrap()
+    let max = counts.iter().max().unwrap();
+    let min = counts.iter().filter(|&&count| count > 0).min().unwrap();
+    max - min
 }
 
 pub fn part1(input: &(Vec<u8>, Vec<(usize, usize, usize)>)) -> usize {
