@@ -82,19 +82,10 @@ fn step(pairs: &HashMap<u16, usize>, rules: &HashMap<u16, u8>) -> HashMap<u16, u
     new_pairs
 }
 
-fn freq(pairs: &HashMap<u16, usize>, first: u8) -> usize {
-    let mut counts = [0usize; 26];
-    counts[(first - b'A') as usize] = 1;
-
-    for (pair, &count) in pairs {
-        let b = u8::try_from(pair & 0xff).unwrap();
-        counts[(b - b'A') as usize] += count;
-    }
-
-    counts.iter().max().unwrap() - counts.iter().filter(|&&x| x > 0).min().unwrap()
-}
-
 fn solve<const N: usize>((input, rules): &(Vec<u8>, Vec<Rule>)) -> usize {
+    let mut counts = [0usize; 26];
+    counts[(input[0] - b'A') as usize] = 1;
+
     let rules: HashMap<u16, u8> = rules
         .iter()
         .map(|&Rule { pair, result }| {
@@ -103,12 +94,14 @@ fn solve<const N: usize>((input, rules): &(Vec<u8>, Vec<Rule>)) -> usize {
         })
         .collect();
 
-    let mut pairs = pairs(input);
-    for _ in 0..N {
-        pairs = step(&pairs, &rules);
+    let pairs = (0..N).fold(pairs(input), |pairs, _| step(&pairs, &rules));
+
+    for (pair, count) in pairs {
+        let byte = u8::try_from(pair & 0xff).unwrap();
+        counts[(byte - b'A') as usize] += count;
     }
 
-    freq(&pairs, input[0])
+    counts.iter().max().unwrap() - counts.iter().filter(|&&count| count > 0).min().unwrap()
 }
 
 pub fn part1(input: &(Vec<u8>, Vec<Rule>)) -> usize {
