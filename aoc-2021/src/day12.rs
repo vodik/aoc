@@ -79,7 +79,7 @@ impl Graph {
     }
 
     fn paths_from(&self, index: NodeIdx, revisit: usize) -> usize {
-        let mut stack = Vec::with_capacity(30);
+        let mut stack = Vec::with_capacity(40);
         stack.extend(self.edges(index).map(|&vertex| (vertex, 0u32, revisit)));
 
         let mut paths = 0;
@@ -90,7 +90,7 @@ impl Graph {
                     paths += 1;
                 }
                 Vertex::BigCave(_) => {
-                    stack.extend(self.edges(index).map(|&succ| (succ, visited, revisit)))
+                    stack.extend(self.edges(index).map(|&succ| (succ, visited, revisit)));
                 }
                 Vertex::SmallCave(_) => {
                     let mask = 1 << index;
