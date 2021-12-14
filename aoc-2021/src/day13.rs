@@ -116,9 +116,9 @@ fn dump(board: &HashSet<Point>) -> String {
         for x in 0..max_x {
             let p = Point { x, y };
             if board.contains(&p) {
-                write!(&mut output, "#").unwrap();
+                write!(&mut output, "█").unwrap();
             } else {
-                write!(&mut output, ".").unwrap();
+                write!(&mut output, "░").unwrap();
             }
         }
         writeln!(&mut output).unwrap();
