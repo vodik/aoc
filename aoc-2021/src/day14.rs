@@ -57,8 +57,8 @@ pub fn parse_input(input: &str) -> (Vec<u8>, Vec<(usize, usize, usize)>) {
     .unwrap()
 }
 
-fn init_pairs(input: &[u8]) -> [usize; 26 * 26] {
-    let mut pairs = [0; 26 * 26];
+fn init_pairs(input: &[u8]) -> Vec<usize> {
+    let mut pairs = vec![0; 26 * 26];
 
     for window in input.windows(2) {
         let key = encode(window[0], window[1]);
@@ -68,8 +68,8 @@ fn init_pairs(input: &[u8]) -> [usize; 26 * 26] {
     pairs
 }
 
-fn step(pairs: &[usize], rules: &[(usize, usize, usize)]) -> [usize; 26 * 26] {
-    let mut new_pairs = [0; 26 * 26];
+fn step(pairs: &[usize], rules: &[(usize, usize, usize)]) -> Vec<usize> {
+    let mut new_pairs = vec![0; 26 * 26];
 
     for &(index, p1, p2) in rules {
         let count = pairs[index];
