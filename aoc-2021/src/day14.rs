@@ -24,7 +24,10 @@ fn word(input: &str) -> IResult<&str, Vec<u8>> {
 
 fn parse_rule(input: &str) -> IResult<&str, (usize, usize, usize)> {
     map(separated_pair(word, tag(" -> "), word), |(pair, result)| {
-        (ord(pair[0]), ord(pair[1]), ord(result[0]))
+        let a = ord(pair[0]);
+        let b = ord(pair[1]);
+        let c = ord(result[0]);
+        (a * 26 + b, a * 26 + c, c * 26 + b)
     })(input)
 }
 
@@ -68,10 +71,10 @@ fn init_pairs(input: &[u8]) -> [usize; 26 * 26] {
 fn step(pairs: &[usize], rules: &[(usize, usize, usize)]) -> [usize; 26 * 26] {
     let mut new_pairs = [0; 26 * 26];
 
-    for (a, b, c) in rules {
-        let count = pairs[a * 26 + b];
-        new_pairs[a * 26 + c] += count;
-        new_pairs[c * 26 + b] += count;
+    for &(index, p1, p2) in rules {
+        let count = pairs[index];
+        new_pairs[p1] += count;
+        new_pairs[p2] += count;
     }
 
     new_pairs
