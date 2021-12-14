@@ -54,11 +54,11 @@ pub fn parse_input(input: &str) -> (Vec<u8>, Vec<Rule>) {
     .unwrap()
 }
 
-fn pairs(input: &[u8]) -> HashMap<[u8; 2], usize> {
+fn pairs(input: &[u8]) -> HashMap<u16, usize> {
     let mut pairs = HashMap::new();
 
     for window in input.windows(2) {
-        let key: [u8; 2] = window.try_into().unwrap();
+        let key = (window[0] as u16) << 8 | window[1] as u16;
         pairs
             .entry(key)
             .and_modify(|count| *count += 1)
@@ -68,32 +68,38 @@ fn pairs(input: &[u8]) -> HashMap<[u8; 2], usize> {
     pairs
 }
 
-fn step(pairs: &HashMap<[u8; 2], usize>, rules: &HashMap<[u8; 2], u8>) -> HashMap<[u8; 2], usize> {
-    let mut new_pairs: HashMap<[u8; 2], usize> = HashMap::new();
+fn step(pairs: &HashMap<u16, usize>, rules: &HashMap<u16, u8>) -> HashMap<u16, usize> {
+    let mut new_pairs: HashMap<u16, usize> = HashMap::new();
 
     for (pair, &count) in pairs {
         let mid = rules[pair];
-        *new_pairs.entry([pair[0], mid]).or_default() += count;
-        *new_pairs.entry([mid, pair[1]]).or_default() += count;
+        let first = pair & 0xff00 | mid as u16;
+        let second = pair & 0xff | (mid as u16) << 8;
+        *new_pairs.entry(first).or_default() += count;
+        *new_pairs.entry(second).or_default() += count;
     }
 
     new_pairs
 }
 
-fn freq(pairs: &HashMap<[u8; 2], usize>, first: u8) -> usize {
+fn freq(pairs: &HashMap<u16, usize>, first: u8) -> usize {
     let mut counts = [0usize; 26];
     counts[(first - b'A') as usize] = 1;
 
     for (pair, &count) in pairs {
-        counts[(pair[1] - b'A') as usize] += count;
+        let b = u8::try_from(pair & 0xff).unwrap();
+        counts[(b - b'A') as usize] += count;
     }
     counts.iter().max().unwrap() - counts.iter().filter(|&&x| x > 0).min().unwrap()
 }
 
 fn solve<const N: usize>((input, rules): &(Vec<u8>, Vec<Rule>)) -> usize {
-    let rules: HashMap<[u8; 2], u8> = rules
+    let rules: HashMap<u16, u8> = rules
         .iter()
-        .map(|&Rule { pair, result }| (pair, result))
+        .map(|&Rule { pair, result }| {
+            let encoded = (pair[0] as u16) << 8 | pair[1] as u16;
+            (encoded, result)
+        })
         .collect();
 
     let mut pairs = pairs(input);
