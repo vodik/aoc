@@ -15,15 +15,15 @@ pub fn parse_input(input: &str) -> Vec<u8> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-struct Visit(NodeIdx, usize);
+struct NodeCost(NodeIdx, usize);
 
-impl PartialOrd for Visit {
+impl PartialOrd for NodeCost {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.1.partial_cmp(&other.1).map(|x| x.reverse())
     }
 }
 
-impl Ord for Visit {
+impl Ord for NodeCost {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap()
     }
@@ -42,9 +42,9 @@ fn djikstra(start: NodeIdx, goal: NodeIdx, board: &[u8], width: usize) -> usize 
     let mut costs = vec![0; board.len()];
 
     let mut heap = BinaryHeap::new();
-    heap.push(Visit(start, 0));
+    heap.push(NodeCost(start, 0));
 
-    while let Some(Visit(index, _)) = heap.pop() {
+    while let Some(NodeCost(index, _)) = heap.pop() {
         if index == goal {
             break;
         }
@@ -54,7 +54,7 @@ fn djikstra(start: NodeIdx, goal: NodeIdx, board: &[u8], width: usize) -> usize 
             let current_cost = costs[next];
             if current_cost == 0 || new_cost < current_cost {
                 costs[next] = new_cost;
-                heap.push(Visit(next, new_cost));
+                heap.push(NodeCost(next, new_cost));
             }
         }
     }
