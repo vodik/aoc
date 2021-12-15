@@ -1,4 +1,4 @@
-use std::collections::BinaryHeap;
+use std::{cmp::Ordering, collections::BinaryHeap};
 
 const WIDTH: usize = 100;
 
@@ -15,17 +15,17 @@ pub fn parse_input(input: &str) -> Vec<u8> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-struct NodeCost(NodeIdx, usize);
+struct State(NodeIdx, usize);
 
-impl PartialOrd for NodeCost {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.1.partial_cmp(&other.1).map(|x| x.reverse())
+impl PartialOrd for State {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
-impl Ord for NodeCost {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+impl Ord for State {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.1.cmp(&self.1)
     }
 }
 
@@ -40,10 +40,10 @@ fn neighbours(point: usize, width: usize) -> [Option<usize>; 4] {
 
 fn djikstra(start: NodeIdx, goal: NodeIdx, board: &[u8], width: usize) -> usize {
     let mut heap = BinaryHeap::new();
-    heap.push(NodeCost(start, 0));
+    heap.push(State(start, 0));
 
     let mut costs = vec![0; board.len()];
-    while let Some(NodeCost(index, cost)) = heap.pop() {
+    while let Some(State(index, cost)) = heap.pop() {
         if index == goal {
             break;
         }
@@ -57,7 +57,7 @@ fn djikstra(start: NodeIdx, goal: NodeIdx, board: &[u8], width: usize) -> usize 
                     let current_cost = costs[next];
                     (current_cost == 0 || new_cost < current_cost).then(|| {
                         costs[next] = new_cost;
-                        NodeCost(next, new_cost)
+                        State(next, new_cost)
                     })
                 }),
         );
