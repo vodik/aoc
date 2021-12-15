@@ -39,24 +39,28 @@ fn neighbours(point: usize, width: usize) -> [Option<usize>; 4] {
 }
 
 fn djikstra(start: NodeIdx, goal: NodeIdx, board: &[u8], width: usize) -> usize {
-    let mut costs = vec![0; board.len()];
-
     let mut heap = BinaryHeap::new();
     heap.push(NodeCost(start, 0));
 
-    while let Some(NodeCost(index, _)) = heap.pop() {
+    let mut costs = vec![0; board.len()];
+    while let Some(NodeCost(index, cost)) = heap.pop() {
         if index == goal {
             break;
         }
 
-        for &next in neighbours(index, width).iter().flatten() {
-            let new_cost: usize = costs[index] + board[next] as usize;
-            let current_cost = costs[next];
-            if current_cost == 0 || new_cost < current_cost {
-                costs[next] = new_cost;
-                heap.push(NodeCost(next, new_cost));
-            }
-        }
+        heap.extend(
+            neighbours(index, width)
+                .iter()
+                .flatten()
+                .filter_map(|&next| {
+                    let new_cost = cost + board[next] as usize;
+                    let current_cost = costs[next];
+                    (current_cost == 0 || new_cost < current_cost).then(|| {
+                        costs[next] = new_cost;
+                        NodeCost(next, new_cost)
+                    })
+                }),
+        );
     }
 
     costs[goal]
