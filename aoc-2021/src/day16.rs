@@ -7,17 +7,9 @@ pub fn parse_input(input: &str) -> Packet {
             line.chars()
                 .map(|b| u8::try_from(b.to_digit(16).unwrap()).unwrap())
         })
-        .flat_map(|b| {
-            [
-                (b & 0b1000) >> 3,
-                (b & 0b0100) >> 2,
-                (b & 0b0010) >> 1,
-                b & 0b0001,
-            ]
-        })
         .collect();
 
-    let mut reader = Reader(bytes.iter());
+    let mut reader = Reader::new(&bytes).unwrap();
     let (packet, _) = parse_packet(&mut reader).unwrap();
     packet
 }
@@ -28,6 +20,16 @@ pub enum PacketBody {
     Nested(Vec<Packet>),
 }
 
+// pub enum Op {
+//     Sum,
+//     Product,
+//     Min,
+//     Max,
+//     GreaterThan,
+//     LessThan,
+//     Equal
+// }
+
 #[derive(Debug)]
 pub struct Packet {
     version: u32,
@@ -35,16 +37,64 @@ pub struct Packet {
     body: PacketBody,
 }
 
-struct Reader<'a>(slice::Iter<'a, u8>);
+struct Reader<'a> {
+    curr: Option<u8>,
+    bit: u8,
+    iter: slice::Iter<'a, u8>,
+}
 
-impl Reader<'_> {
-    fn read(&mut self, size: usize) -> Option<u32> {
-        let mut v = 0;
-        for _ in 0..size {
-            v <<= 1;
-            v |= *self.0.next()? as u32
+impl<'a> Reader<'a> {
+    fn new(input: &'a [u8]) -> Option<Self> {
+        let mut iter = input.iter();
+        Some(Self {
+            curr: iter.next().copied(),
+            bit: 3,
+            iter,
+        })
+    }
+
+    fn next(&mut self) -> Option<u8> {
+        let mask = 1 << self.bit;
+        let out = (self.curr? & mask) >> self.bit;
+
+        if self.bit == 0 {
+            self.bit = 3;
+            self.curr = self.iter.next().copied();
+        } else {
+            self.bit -= 1;
         }
-        Some(v)
+
+        Some(out)
+    }
+
+    fn read(&mut self, mut size: usize) -> Option<u32> {
+        let mut out = 0;
+
+        // to alignment
+        if self.bit != 3 {
+            let bits = usize::min(self.bit as usize + 1, size);
+            size -= bits;
+
+            for _ in 0..bits {
+                out <<= 1;
+                out |= self.next()? as u32
+            }
+        }
+
+        // aligned
+        for _ in 0..(size / 4) {
+            out <<= 4;
+            out |= self.curr? as u32;
+            self.curr = self.iter.next().copied();
+        }
+
+        // leftover
+        for _ in 0..(size % 4) {
+            out <<= 1;
+            out |= self.next()? as u32
+        }
+
+        Some(out)
     }
 }
 
@@ -68,17 +118,16 @@ fn parse_operator(reader: &mut Reader) -> Option<(PacketBody, usize)> {
     let chunk_encoded = reader.read(1)?;
     if chunk_encoded == 0 {
         let length = reader.read(15)? as usize;
-        let read = 16 + length;
-        let mut r2 = 0usize;
+        let mut read = 0usize;
         let mut packets = Vec::new();
 
-        while r2 < length {
+        while read < length {
             let (packet, r) = parse_packet(reader).unwrap();
-            r2 += r;
+            read += r;
             packets.push(packet);
         }
 
-        Some((PacketBody::Nested(packets), read))
+        Some((PacketBody::Nested(packets), 16 + length))
     } else {
         let chunks = reader.read(11)?;
         let mut read = 12;
