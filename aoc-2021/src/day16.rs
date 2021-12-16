@@ -75,15 +75,20 @@ impl<'a> Reader<'a> {
     }
 
     fn read(&mut self, size: usize) -> u32 {
-        if size >= 6 {
-            self.read_large(size)
-        } else {
+        if size < 4 {
             self.read_small(size)
+        } else {
+            self.read_large(size)
         }
     }
 
     fn read_small(&mut self, size: usize) -> u32 {
-        (0..size).fold(0, |acc, _| acc << 1 | self.read_bit() as u32)
+        let mut out = 0;
+        for _ in 0..size {
+            out <<= 1;
+            out |= self.read_bit() as u32
+        }
+        out
     }
 
     fn read_large(&mut self, mut size: usize) -> u32 {
@@ -136,12 +141,12 @@ fn parse_literal(reader: &mut Reader) -> (Body, usize) {
     let mut value = 0;
 
     loop {
-        let c = reader.read(1);
+        let mark = reader.read(1);
         value <<= 4;
         value |= reader.read(4) as u64;
         read += 5;
 
-        if c == 0 {
+        if mark == 0 {
             break (Body::Literal(value), read);
         }
     }
