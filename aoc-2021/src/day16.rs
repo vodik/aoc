@@ -1,5 +1,3 @@
-use std::slice;
-
 pub fn parse_input(input: &str) -> Packet {
     let bytes: Vec<u8> = input
         .lines()
@@ -10,7 +8,7 @@ pub fn parse_input(input: &str) -> Packet {
         .collect();
 
     let mut reader = Reader::new(&bytes).unwrap();
-    let (packet, _) = parse_packet(&mut reader).unwrap();
+    let (packet, _) = parse_packet(&mut reader);
     packet
 }
 
@@ -38,117 +36,152 @@ pub struct Packet {
 }
 
 struct Reader<'a> {
-    curr: Option<u8>,
-    bit: u8,
-    iter: slice::Iter<'a, u8>,
+    input: &'a [u8],
+    pos: usize,
+    bit: usize,
 }
 
 impl<'a> Reader<'a> {
     fn new(input: &'a [u8]) -> Option<Self> {
-        let mut iter = input.iter();
         Some(Self {
-            curr: iter.next().copied(),
+            input,
+            pos: 0,
             bit: 3,
-            iter,
         })
     }
 
-    fn next(&mut self) -> Option<u8> {
+    fn flush(&mut self) {
+        self.pos += 1;
+        self.bit = 3;
+    }
+
+    fn read_bit(&mut self) -> u8 {
         let mask = 1 << self.bit;
-        let out = (self.curr? & mask) >> self.bit;
+        let out = (self.input[self.pos] & mask) >> self.bit;
 
         if self.bit == 0 {
-            self.bit = 3;
-            self.curr = self.iter.next().copied();
+            self.flush();
         } else {
             self.bit -= 1;
         }
 
-        Some(out)
+        out
     }
 
-    fn read(&mut self, mut size: usize) -> Option<u32> {
+    fn read_byte(&mut self) -> u8 {
+        let out = self.input[self.pos];
+        self.flush();
+        out
+    }
+
+    fn read(&mut self, size: usize) -> u32 {
+        if size >= 6 {
+            self.read_large(size)
+        } else {
+            self.read_small(size)
+        }
+    }
+
+    fn read_small(&mut self, size: usize) -> u32 {
+        (0..size).fold(0, |acc, _| acc << 1 | self.read_bit() as u32)
+    }
+
+    fn read_large(&mut self, mut size: usize) -> u32 {
         let mut out = 0;
 
-        // to alignment
-        if self.bit != 3 {
-            let bits = usize::min(self.bit as usize + 1, size);
-            size -= bits;
-
-            for _ in 0..bits {
+        // read til 4 byte aligned
+        match self.bit {
+            0 => {
                 out <<= 1;
-                out |= self.next()? as u32
+                out |= self.input[self.pos] as u32 & 0b0001;
+                size -= 1;
             }
+            1 => {
+                out <<= 2;
+                out |= self.input[self.pos] as u32 & 0b0011;
+                size -= 2;
+            }
+            2 => {
+                out <<= 3;
+                out |= self.input[self.pos] as u32 & 0b0111;
+                size -= 3;
+            }
+            3 => {
+                out <<= 4;
+                out |= self.input[self.pos] as u32;
+                size -= 4;
+            }
+            _ => unreachable!(),
         }
+        self.flush();
 
-        // aligned
+        // read aligned
         for _ in 0..(size / 4) {
             out <<= 4;
-            out |= self.curr? as u32;
-            self.curr = self.iter.next().copied();
+            out |= self.read_byte() as u32;
         }
 
-        // leftover
+        // read leftover
         for _ in 0..(size % 4) {
             out <<= 1;
-            out |= self.next()? as u32
+            out |= self.read_bit() as u32
         }
 
-        Some(out)
+        out
     }
 }
 
-fn parse_literal(reader: &mut Reader) -> Option<(Body, usize)> {
+fn parse_literal(reader: &mut Reader) -> (Body, usize) {
     let mut read = 0;
     let mut value = 0;
 
     loop {
-        let c = reader.read(1)?;
+        let c = reader.read(1);
         value <<= 4;
-        value |= reader.read(4)? as u64;
+        value |= reader.read(4) as u64;
         read += 5;
 
         if c == 0 {
-            break Some((Body::Literal(value), read));
+            break (Body::Literal(value), read);
         }
     }
 }
 
-fn parse_form(op: Op, reader: &mut Reader) -> Option<(Body, usize)> {
-    let chunk_encoded = reader.read(1)?;
-    if chunk_encoded == 0 {
-        let length = reader.read(15)? as usize;
-        let mut read = 0usize;
-        let mut packets = Vec::new();
-
-        while read < length {
-            let (packet, r) = parse_packet(reader).unwrap();
-            read += r;
-            packets.push(packet);
-        }
-
-        Some((Body::Form(op, packets), 16 + length))
-    } else {
-        let chunks = reader.read(11)?;
+fn parse_form(op: Op, reader: &mut Reader) -> (Body, usize) {
+    let length_encoding = reader.read(1);
+    if length_encoding == 1 {
+        let chunks = reader.read(11);
         let mut read = 12;
         let mut packets = Vec::with_capacity(chunks as usize);
 
         for _ in 0..chunks {
-            let (packet, r) = parse_packet(reader).unwrap();
-            read += r;
+            let (packet, size) = parse_packet(reader);
+            read += size;
             packets.push(packet);
         }
 
-        Some((Body::Form(op, packets), read))
+        (Body::Form(op, packets), read)
+    } else {
+        let length = reader.read(15) as usize;
+        let mut read = 0usize;
+        let mut packets = Vec::new();
+
+        while read < length {
+            let (packet, size) = parse_packet(reader);
+            read += size;
+            packets.push(packet);
+        }
+
+        (Body::Form(op, packets), 16 + length)
     }
 }
 
-fn parse_packet(reader: &mut Reader) -> Option<(Packet, usize)> {
-    let version = reader.read(3)?;
-    let op = reader.read(3)?;
+fn parse_packet(reader: &mut Reader) -> (Packet, usize) {
+    let version = reader.read(3);
+    let op = reader.read(3);
 
     let mut read = 6;
-    let (body, r) = match op {
+    let (body, size) = match op {
         0 => parse_form(Op::Sum, reader),
         1 => parse_form(Op::Product, reader),
         2 => parse_form(Op::Min, reader),
@@ -158,10 +191,10 @@ fn parse_packet(reader: &mut Reader) -> Option<(Packet, usize)> {
         6 => parse_form(Op::LessThan, reader),
         7 => parse_form(Op::Equal, reader),
         _ => unreachable!(),
-    }?;
-    read += r;
+    };
+    read += size;
 
-    Some((Packet { version, body }, read))
+    (Packet { version, body }, read)
 }
 
 fn versions(packet: &Packet) -> u32 {
