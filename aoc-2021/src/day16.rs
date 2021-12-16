@@ -197,49 +197,51 @@ fn parse_packet(reader: &mut Reader) -> (Packet, usize) {
     (Packet { version, body }, read)
 }
 
-fn versions(packet: &Packet) -> u32 {
-    packet.version
-        + match &packet.body {
-            Body::Literal(_) => 0,
-            Body::Form(_, nested) => nested.iter().map(versions).sum(),
-        }
-}
+impl Packet {
+    fn sum_versions(&self) -> u32 {
+        self.version
+            + match &self.body {
+                Body::Literal(_) => 0,
+                Body::Form(_, body) => body.iter().map(Packet::sum_versions).sum(),
+            }
+    }
 
-fn eval(packet: &Packet) -> u64 {
-    match &packet.body {
-        Body::Literal(value) => *value,
-        Body::Form(Op::Sum, body) => body.iter().map(eval).sum(),
-        Body::Form(Op::Product, body) => body.iter().map(eval).product(),
-        Body::Form(Op::Min, body) => body.iter().map(eval).min().unwrap(),
-        Body::Form(Op::Max, body) => body.iter().map(eval).max().unwrap(),
-        Body::Form(Op::GreaterThan, body) => {
-            if eval(&body[0]) > eval(&body[1]) {
-                1
-            } else {
-                0
+    fn eval(&self) -> u64 {
+        match &self.body {
+            Body::Literal(value) => *value,
+            Body::Form(Op::Sum, body) => body.iter().map(Packet::eval).sum(),
+            Body::Form(Op::Product, body) => body.iter().map(Packet::eval).product(),
+            Body::Form(Op::Min, body) => body.iter().map(Packet::eval).min().unwrap(),
+            Body::Form(Op::Max, body) => body.iter().map(Packet::eval).max().unwrap(),
+            Body::Form(Op::GreaterThan, body) => {
+                if body[0].eval() > body[1].eval() {
+                    1
+                } else {
+                    0
+                }
             }
-        }
-        Body::Form(Op::LessThan, body) => {
-            if eval(&body[0]) < eval(&body[1]) {
-                1
-            } else {
-                0
+            Body::Form(Op::LessThan, body) => {
+                if body[0].eval() < body[1].eval() {
+                    1
+                } else {
+                    0
+                }
             }
-        }
-        Body::Form(Op::Equal, body) => {
-            if eval(&body[0]) == eval(&body[1]) {
-                1
-            } else {
-                0
+            Body::Form(Op::Equal, body) => {
+                if body[0].eval() == body[1].eval() {
+                    1
+                } else {
+                    0
+                }
             }
         }
     }
 }
 
-pub fn part1(input: &Packet) -> u32 {
-    versions(input)
+pub fn part1(packet: &Packet) -> u32 {
+    packet.sum_versions()
 }
 
-pub fn part2(input: &Packet) -> u64 {
-    eval(input)
+pub fn part2(packet: &Packet) -> u64 {
+    packet.eval()
 }
