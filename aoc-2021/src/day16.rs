@@ -1,40 +1,3 @@
-pub fn parse_input(input: &str) -> Packet {
-    let bytes: Vec<u8> = input
-        .lines()
-        .flat_map(|line| {
-            line.chars()
-                .map(|b| u8::try_from(b.to_digit(16).unwrap()).unwrap())
-        })
-        .collect();
-
-    let mut reader = Reader::new(&bytes).unwrap();
-    let (packet, _) = parse_packet(&mut reader);
-    packet
-}
-
-#[derive(Debug)]
-pub enum Op {
-    Sum,
-    Product,
-    Min,
-    Max,
-    GreaterThan,
-    LessThan,
-    Equal,
-}
-
-#[derive(Debug)]
-pub enum Body {
-    Literal(u64),
-    Form(Op, Vec<Packet>),
-}
-
-#[derive(Debug)]
-pub struct Packet {
-    version: u32,
-    body: Body,
-}
-
 struct Reader<'a> {
     input: &'a [u8],
     pos: usize,
@@ -42,12 +5,12 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn new(input: &'a [u8]) -> Option<Self> {
-        Some(Self {
+    fn new(input: &'a [u8]) -> Self {
+        Self {
             input,
             pos: 0,
             bit: 3,
-        })
+        }
     }
 
     fn flush(&mut self) {
@@ -136,6 +99,29 @@ impl<'a> Reader<'a> {
     }
 }
 
+#[derive(Debug)]
+pub enum Op {
+    Sum,
+    Product,
+    Min,
+    Max,
+    GreaterThan,
+    LessThan,
+    Equal,
+}
+
+#[derive(Debug)]
+pub enum Body {
+    Literal(u64),
+    Form(Op, Vec<Packet>),
+}
+
+#[derive(Debug)]
+pub struct Packet {
+    version: u32,
+    body: Body,
+}
+
 fn parse_literal(reader: &mut Reader) -> (Body, usize) {
     let mut read = 0;
     let mut value = 0;
@@ -156,7 +142,7 @@ fn parse_form(op: Op, reader: &mut Reader) -> (Body, usize) {
     let length_encoding = reader.read(1);
     if length_encoding == 1 {
         let chunks = reader.read(11);
-        let mut read = 12;
+        let mut read = 0;
         let mut packets = Vec::with_capacity(chunks as usize);
 
         for _ in 0..chunks {
@@ -165,7 +151,7 @@ fn parse_form(op: Op, reader: &mut Reader) -> (Body, usize) {
             packets.push(packet);
         }
 
-        (Body::Form(op, packets), read)
+        (Body::Form(op, packets), 12 + read)
     } else {
         let length = reader.read(15) as usize;
         let mut read = 0usize;
@@ -177,7 +163,7 @@ fn parse_form(op: Op, reader: &mut Reader) -> (Body, usize) {
             packets.push(packet);
         }
 
-        (Body::Form(op, packets), 16 + length)
+        (Body::Form(op, packets), 16 + read)
     }
 }
 
@@ -203,6 +189,12 @@ fn parse_packet(reader: &mut Reader) -> (Packet, usize) {
 }
 
 impl Packet {
+    fn parse(bytes: &[u8]) -> Self {
+        let mut reader = Reader::new(bytes);
+        let (packet, _) = parse_packet(&mut reader);
+        packet
+    }
+
     fn sum_versions(&self) -> u32 {
         self.version
             + match &self.body {
@@ -241,6 +233,18 @@ impl Packet {
             }
         }
     }
+}
+
+pub fn parse_input(input: &str) -> Packet {
+    let bytes: Vec<u8> = input
+        .lines()
+        .flat_map(|line| {
+            line.chars()
+                .map(|b| u8::try_from(b.to_digit(16).unwrap()).unwrap())
+        })
+        .collect();
+
+    Packet::parse(&bytes)
 }
 
 pub fn part1(packet: &Packet) -> u32 {
