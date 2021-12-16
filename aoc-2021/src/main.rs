@@ -1,5 +1,3 @@
-#![feature(drain_filter)]
-
 use std::{
     fs,
     time::{Duration, Instant},
