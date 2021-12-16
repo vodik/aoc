@@ -15,26 +15,26 @@ pub fn parse_input(input: &str) -> Packet {
 }
 
 #[derive(Debug)]
-pub enum PacketBody {
-    Literal(u64),
-    Nested(Vec<Packet>),
+pub enum Op {
+    Sum,
+    Product,
+    Min,
+    Max,
+    GreaterThan,
+    LessThan,
+    Equal,
 }
 
-// pub enum Op {
-//     Sum,
-//     Product,
-//     Min,
-//     Max,
-//     GreaterThan,
-//     LessThan,
-//     Equal
-// }
+#[derive(Debug)]
+pub enum Body {
+    Literal(u64),
+    Form(Op, Vec<Packet>),
+}
 
 #[derive(Debug)]
 pub struct Packet {
     version: u32,
-    typ: u32,
-    body: PacketBody,
+    body: Body,
 }
 
 struct Reader<'a> {
@@ -98,7 +98,7 @@ impl<'a> Reader<'a> {
     }
 }
 
-fn parse_value(reader: &mut Reader) -> Option<(PacketBody, usize)> {
+fn parse_literal(reader: &mut Reader) -> Option<(Body, usize)> {
     let mut read = 0;
     let mut value = 0;
 
@@ -109,12 +109,12 @@ fn parse_value(reader: &mut Reader) -> Option<(PacketBody, usize)> {
         read += 5;
 
         if c == 0 {
-            break Some((PacketBody::Literal(value), read));
+            break Some((Body::Literal(value), read));
         }
     }
 }
 
-fn parse_operator(reader: &mut Reader) -> Option<(PacketBody, usize)> {
+fn parse_form(op: Op, reader: &mut Reader) -> Option<(Body, usize)> {
     let chunk_encoded = reader.read(1)?;
     if chunk_encoded == 0 {
         let length = reader.read(15)? as usize;
@@ -127,7 +127,7 @@ fn parse_operator(reader: &mut Reader) -> Option<(PacketBody, usize)> {
             packets.push(packet);
         }
 
-        Some((PacketBody::Nested(packets), 16 + length))
+        Some((Body::Form(op, packets), 16 + length))
     } else {
         let chunks = reader.read(11)?;
         let mut read = 12;
@@ -139,61 +139,67 @@ fn parse_operator(reader: &mut Reader) -> Option<(PacketBody, usize)> {
             packets.push(packet);
         }
 
-        Some((PacketBody::Nested(packets), read))
+        Some((Body::Form(op, packets), read))
     }
 }
 
 fn parse_packet(reader: &mut Reader) -> Option<(Packet, usize)> {
     let version = reader.read(3)?;
-    let typ = reader.read(3)?;
-    let mut read = 6;
+    let op = reader.read(3)?;
 
-    let (body, r) = match typ {
-        4 => parse_value(reader),
-        _ => parse_operator(reader),
+    let mut read = 6;
+    let (body, r) = match op {
+        0 => parse_form(Op::Sum, reader),
+        1 => parse_form(Op::Product, reader),
+        2 => parse_form(Op::Min, reader),
+        3 => parse_form(Op::Max, reader),
+        4 => parse_literal(reader),
+        5 => parse_form(Op::GreaterThan, reader),
+        6 => parse_form(Op::LessThan, reader),
+        7 => parse_form(Op::Equal, reader),
+        _ => unreachable!(),
     }?;
     read += r;
 
-    Some((Packet { version, typ, body }, read))
+    Some((Packet { version, body }, read))
 }
 
 fn versions(packet: &Packet) -> u32 {
     packet.version
         + match &packet.body {
-            PacketBody::Literal(_) => 0,
-            PacketBody::Nested(nested) => nested.iter().map(versions).sum(),
+            Body::Literal(_) => 0,
+            Body::Form(_, nested) => nested.iter().map(versions).sum(),
         }
 }
 
-fn run(packet: &Packet) -> u64 {
-    match (packet.typ, &packet.body) {
-        (0, PacketBody::Nested(nested)) => nested.iter().map(run).sum(),
-        (1, PacketBody::Nested(nested)) => nested.iter().map(run).product(),
-        (2, PacketBody::Nested(nested)) => nested.iter().map(run).min().unwrap(),
-        (3, PacketBody::Nested(nested)) => nested.iter().map(run).max().unwrap(),
-        (4, PacketBody::Literal(v)) => *v,
-        (5, PacketBody::Nested(nested)) => {
-            if run(&nested[0]) > run(&nested[1]) {
+fn eval(packet: &Packet) -> u64 {
+    match &packet.body {
+        Body::Literal(value) => *value,
+        Body::Form(Op::Sum, body) => body.iter().map(eval).sum(),
+        Body::Form(Op::Product, body) => body.iter().map(eval).product(),
+        Body::Form(Op::Min, body) => body.iter().map(eval).min().unwrap(),
+        Body::Form(Op::Max, body) => body.iter().map(eval).max().unwrap(),
+        Body::Form(Op::GreaterThan, body) => {
+            if eval(&body[0]) > eval(&body[1]) {
                 1
             } else {
                 0
             }
         }
-        (6, PacketBody::Nested(nested)) => {
-            if run(&nested[0]) < run(&nested[1]) {
+        Body::Form(Op::LessThan, body) => {
+            if eval(&body[0]) < eval(&body[1]) {
                 1
             } else {
                 0
             }
         }
-        (7, PacketBody::Nested(nested)) => {
-            if run(&nested[0]) == run(&nested[1]) {
+        Body::Form(Op::Equal, body) => {
+            if eval(&body[0]) == eval(&body[1]) {
                 1
             } else {
                 0
             }
         }
-        (x, _) => unimplemented!("{}", x),
     }
 }
 
@@ -202,5 +208,5 @@ pub fn part1(input: &Packet) -> u32 {
 }
 
 pub fn part2(input: &Packet) -> u64 {
-    run(input)
+    eval(input)
 }
