@@ -2,10 +2,10 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::digit1,
-    combinator::{all_consuming, map, map_res, opt},
+    combinator::{all_consuming, map, map_res},
     error::Error,
     multi::separated_list1,
-    sequence::{preceded, separated_pair, terminated},
+    sequence::{delimited, separated_pair, terminated},
     Finish, IResult,
 };
 use std::str::FromStr;
@@ -15,35 +15,28 @@ fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
 }
 
 #[derive(Debug)]
-pub enum Number {
-    Pair(Box<Number>, Box<Number>, usize),
-    Value(u8, usize),
+pub enum Expr {
+    Pair(Box<Expr>, Box<Expr>),
+    Value(u8),
 }
 
-fn pair(depth: usize) -> impl Fn(&str) -> IResult<&str, Number> {
-    move |input: &str| {
-        terminated(
-            preceded(
-                tag("["),
-                map(
-                    separated_pair(snail_number(depth + 1), tag(","), snail_number(depth + 1)),
-                    |(a, b)| Number::Pair(Box::new(a), Box::new(b), depth),
-                ),
-            ),
-            tag("]"),
-        )(input)
-    }
+fn pair(input: &str) -> IResult<&str, Expr> {
+    delimited(
+        tag("["),
+        map(
+            separated_pair(snail_number, tag(","), snail_number),
+            |(left, right)| Expr::Pair(Box::new(left), Box::new(right)),
+        ),
+        tag("]"),
+    )(input)
 }
 
-fn snail_number(depth: usize) -> impl Fn(&str) -> IResult<&str, Number> {
-    move |input: &str| alt((map(number, |n| Number::Value(n, depth)), pair(depth)))(input)
+fn snail_number(input: &str) -> IResult<&str, Expr> {
+    alt((map(number, Expr::Value), pair))(input)
 }
 
 fn all_numbers(input: &str) -> IResult<&str, Vec<SnailNumber>> {
-    separated_list1(
-        tag("\n"),
-        map(snail_number(0), |sn| SnailNumber::parse(&sn)),
-    )(input)
+    separated_list1(tag("\n"), map(snail_number, |sn| SnailNumber::parse(&sn)))(input)
 }
 
 pub fn parse_input(input: &str) -> Vec<SnailNumber> {
@@ -59,50 +52,51 @@ pub fn parse_input(input: &str) -> Vec<SnailNumber> {
 
 #[derive(Debug, Default, Clone)]
 pub struct SnailNumber {
-    numbers: Vec<u8>,
-    depth: Vec<usize>,
+    digits: Vec<u8>,
+    depths: Vec<usize>,
 }
 
-fn push(n: &Number, depth: usize, sn: &mut SnailNumber) {
+fn push(n: &Expr, depth: usize, sn: &mut SnailNumber) {
     match n {
-        Number::Pair(a, b, depth) => {
-            push(a, *depth, sn);
-            push(b, *depth, sn);
+        Expr::Pair(a, b) => {
+            push(a, depth + 1, sn);
+            push(b, depth + 1, sn);
         }
-        Number::Value(v, depth) => {
-            sn.numbers.push(*v);
-            sn.depth.push(*depth);
+        Expr::Value(v) => {
+            sn.digits.push(*v);
+            sn.depths.push(depth);
         }
     }
 }
 
 impl SnailNumber {
-    fn parse(n: &Number) -> Self {
+    fn parse(n: &Expr) -> Self {
         let mut sn = SnailNumber::default();
         push(n, 0, &mut sn);
         sn
     }
 
     fn add(&mut self, other: &SnailNumber) {
-        self.numbers.extend_from_slice(&other.numbers);
-        self.depth.iter_mut().for_each(|c| *c += 1);
-        self.depth.extend(other.depth.iter().map(|c| *c + 1));
+        self.digits.extend_from_slice(&other.digits);
+        self.depths.iter_mut().for_each(|c| *c += 1);
+        self.depths.extend(other.depths.iter().map(|c| *c + 1));
     }
 
     fn explode(&mut self) -> bool {
-        if let Some(pos) = self.depth.iter().position(|&d| d == 5) {
+        if let Some(pos) = self.depths.iter().position(|&d| d == 5) {
             if pos > 0 {
-                self.numbers[pos - 1] += self.numbers[pos];
+                self.digits[pos - 1] += self.digits[pos];
             }
-            if pos + 2 < self.numbers.len() {
-                self.numbers[pos + 2] += self.numbers[pos + 1];
+            if pos + 2 < self.digits.len() {
+                self.digits[pos + 2] += self.digits[pos + 1];
             }
 
-            self.numbers.remove(pos);
-            self.depth.remove(pos);
+            self.digits.remove(pos);
+            self.digits[pos] = 0;
 
-            self.numbers[pos] = 0;
-            self.depth[pos] -= 1;
+            self.depths.remove(pos);
+            self.depths[pos] -= 1;
+
             true
         } else {
             false
@@ -110,15 +104,17 @@ impl SnailNumber {
     }
 
     fn split(&mut self) -> bool {
-        if let Some(pos) = self.numbers.iter().position(|&v| v >= 10) {
-            let value = self.numbers[pos];
+        if let Some(pos) = self.digits.iter().position(|&v| v >= 10) {
+            let value = self.digits[pos];
             let left = value / 2;
             let right = value - left;
 
-            self.depth[pos] += 1;
-            self.depth.insert(pos + 1, self.depth[pos]);
-            self.numbers[pos] = left;
-            self.numbers.insert(pos + 1, right);
+            self.digits[pos] = left;
+            self.depths[pos] += 1;
+
+            self.digits.insert(pos + 1, right);
+            self.depths.insert(pos + 1, self.depths[pos]);
+
             true
         } else {
             false
@@ -126,28 +122,21 @@ impl SnailNumber {
     }
 
     fn reduce(&mut self) {
-        loop {
-            if self.explode() {
-                continue;
-            }
-
-            if self.split() {
-                continue;
-            }
-
-            break;
-        }
+        while self.explode() || self.split() {}
     }
 
     fn magnitude(&self) -> u64 {
-        let mut numbers: Vec<u64> = self.numbers.iter().copied().map(Into::into).collect();
-        let mut depths = self.depth.clone();
+        let mut numbers: Vec<_> = self.digits.iter().copied().map(Into::into).collect();
+        let mut depths = self.depths.clone();
 
         for depth in 0..4 {
             let depth = 4 - depth;
 
-            for left in 0..depths.len() {
-                if depths[left] == depth {
+            let mut left = 0;
+            while left < depths.len() {
+                if depths[left] != depth {
+                    left += 1;
+                } else {
                     let mut right = left + 1;
                     while depths[right] == 0 {
                         right += 1;
@@ -156,6 +145,8 @@ impl SnailNumber {
                     numbers[left] = numbers[left] * 3 + numbers[right] * 2;
                     depths[left] -= 1;
                     depths[right] = 0;
+
+                    left = right + 1;
                 }
             }
         }
@@ -179,6 +170,7 @@ pub fn part1(input: &[SnailNumber]) -> u64 {
 
 pub fn part2(input: &[SnailNumber]) -> u64 {
     let mut max = 0;
+
     for pos in 0..input.len() {
         for other in 0..input.len() {
             if other == pos {
