@@ -143,14 +143,20 @@ impl SnailNumber {
         let mut numbers: Vec<u64> = self.numbers.iter().copied().map(Into::into).collect();
         let mut depths = self.depth.clone();
 
-        for d in 0..4 {
-            let d = 4 - d;
-            while let Some(pos) = depths.iter().position(|&x| x == d) {
-                let right = numbers.remove(pos + 1);
-                depths.remove(pos + 1);
+        for depth in 0..4 {
+            let depth = 4 - depth;
 
-                depths[pos] -= 1;
-                numbers[pos] = numbers[pos] * 3 + right * 2;
+            for left in 0..depths.len() {
+                if depths[left] == depth {
+                    let mut right = left + 1;
+                    while depths[right] == 0 {
+                        right += 1;
+                    }
+
+                    numbers[left] = numbers[left] * 3 + numbers[right] * 2;
+                    depths[left] -= 1;
+                    depths[right] = 0;
+                }
             }
         }
 
@@ -161,11 +167,14 @@ impl SnailNumber {
 pub fn part1(input: &[SnailNumber]) -> u64 {
     let first = input[0].clone();
 
-    input[1..].iter().fold(first, |mut acc, sn| {
-        acc.add(sn);
-        acc.reduce();
-        acc
-    }).magnitude()
+    input[1..]
+        .iter()
+        .fold(first, |mut acc, sn| {
+            acc.add(sn);
+            acc.reduce();
+            acc
+        })
+        .magnitude()
 }
 
 pub fn part2(input: &[SnailNumber]) -> u64 {
