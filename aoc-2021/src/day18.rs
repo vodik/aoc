@@ -96,11 +96,11 @@ impl SnailNumber {
         true
     }
 
-    fn explode_scan(&mut self) -> bool {
-        if let Some(pos) = self.0.iter().position(|&(_, d)| d == 5) {
-            self.explode(pos)
+    fn explode_scan(&mut self, hint: usize) -> Option<usize> {
+        if let Some(pos) = self.0[hint..].iter().position(|&(_, d)| d == 5) {
+            self.explode(pos + hint).then(|| pos + hint)
         } else {
-            false
+            None
         }
     }
 
@@ -120,16 +120,33 @@ impl SnailNumber {
         true
     }
 
-    fn split_scan(&mut self) -> bool {
-        if let Some(pos) = self.0.iter().position(|&(v, _)| v >= 10) {
-            self.split(pos)
+    fn split_scan(&mut self, hint: usize) -> Option<usize> {
+        if let Some(pos) = self.0[hint..].iter().position(|&(v, _)| v >= 10) {
+            self.split(pos + hint).then(|| pos + hint)
         } else {
-            false
+            None
         }
     }
 
     fn reduce(&mut self) {
-        while self.explode_scan() || self.split_scan() {}
+        let mut hint = 0;
+        loop {
+            let mut reset = false;
+            while let Some(newhint) = self.explode_scan(hint) {
+                reset = true;
+                hint = newhint;
+            }
+
+            if reset {
+                hint = 0;
+            }
+
+            if let Some(newhint) = self.split_scan(hint) {
+                hint = newhint
+            } else {
+                break;
+            }
+        }
     }
 
     fn magnitude(&self) -> u64 {
