@@ -31,8 +31,12 @@ fn pair(input: &str) -> IResult<&str, Expr> {
     )(input)
 }
 
+fn value(input: &str) -> IResult<&str, Expr> {
+    map(number, Expr::Value)(input)
+}
+
 fn snail_number(input: &str) -> IResult<&str, Expr> {
-    alt((map(number, Expr::Value), pair))(input)
+    alt((pair, value))(input)
 }
 
 fn all_numbers(input: &str) -> IResult<&str, Vec<SnailNumber>> {
@@ -77,62 +81,53 @@ impl SnailNumber {
         self.0.iter_mut().for_each(|(_, c)| *c += 1);
     }
 
-    fn explode(&mut self, pos: usize) -> bool {
-        if self.0[pos].1 != 5 {
-            return false;
-        }
+    fn explode(&mut self, hint: usize) -> Option<usize> {
+        self.0[hint..].iter().position(|&(_, d)| d == 5).map(|pos| {
+            let pos = pos + hint;
 
-        if pos > 0 {
-            self.0[pos - 1].0 += self.0[pos].0;
-        }
-        if pos + 2 < self.0.len() {
-            self.0[pos + 2].0 += self.0[pos + 1].0;
-        }
+            let newhint = if pos > 0 {
+                self.0[pos - 1].0 += self.0[pos].0;
+                pos - 1
+            } else {
+                0
+            };
 
-        self.0.remove(pos);
-        self.0[pos].0  = 0;
-        self.0[pos].1 -= 1;
+            if pos + 2 < self.0.len() {
+                self.0[pos + 2].0 += self.0[pos + 1].0;
+            }
 
-        true
+            self.0.remove(pos);
+            self.0[pos].0 = 0;
+            self.0[pos].1 -= 1;
+
+            newhint
+        })
     }
 
-    fn explode_scan(&mut self, hint: usize) -> Option<usize> {
-        if let Some(pos) = self.0[hint..].iter().position(|&(_, d)| d == 5) {
-            self.explode(pos + hint).then(|| pos + hint)
-        } else {
-            None
-        }
-    }
+    fn split(&mut self, hint: usize) -> Option<usize> {
+        self.0[hint..]
+            .iter()
+            .position(|&(v, _)| v >= 10)
+            .map(|pos| {
+                let pos = pos + hint;
+                let cell = &mut self.0[pos];
 
-    fn split(&mut self, pos: usize) -> bool {
-        let cell = &mut self.0[pos];
-        if cell.0 < 10 {
-            return false;
-        }
+                let left = cell.0 / 2;
+                let right = cell.0 - left;
+                let depth = cell.1 + 1;
 
-        let left = cell.0 / 2;
-        let right = cell.0 - left;
-        let depth = cell.1 + 1;
+                *cell = (left, depth);
+                self.0.insert(pos + 1, (right, depth));
 
-        *cell = (left, depth);
-        self.0.insert(pos + 1, (right, depth));
-
-        true
-    }
-
-    fn split_scan(&mut self, hint: usize) -> Option<usize> {
-        if let Some(pos) = self.0[hint..].iter().position(|&(v, _)| v >= 10) {
-            self.split(pos + hint).then(|| pos + hint)
-        } else {
-            None
-        }
+                pos
+            })
     }
 
     fn reduce(&mut self) {
         let mut hint = 0;
         loop {
             let mut reset = false;
-            while let Some(newhint) = self.explode_scan(hint) {
+            while let Some(newhint) = self.explode(hint) {
                 reset = true;
                 hint = newhint;
             }
@@ -141,7 +136,7 @@ impl SnailNumber {
                 hint = 0;
             }
 
-            if let Some(newhint) = self.split_scan(hint) {
+            if let Some(newhint) = self.split(hint) {
                 hint = newhint
             } else {
                 break;
@@ -150,16 +145,12 @@ impl SnailNumber {
     }
 
     fn magnitude(&self) -> u64 {
-        let mut numbers: Vec<_> = self.0.iter().copied().map(|(v, d)| (v.into(), d)).collect();
+        let mut numbers: Vec<_> = self.0.iter().map(|&(v, d)| (v.into(), d)).collect();
 
-        for depth in 0..4 {
-            let depth = 4 - depth;
-
+        for depth in (1..5).rev() {
             let mut left = 0;
             while left < numbers.len() {
-                if numbers[left].1 != depth {
-                    left += 1;
-                } else {
+                if numbers[left].1 == depth {
                     let mut right = left + 1;
                     while numbers[right].1 == 0 {
                         right += 1;
@@ -169,8 +160,9 @@ impl SnailNumber {
                     numbers[left].1 -= 1;
                     numbers[right].1 = 0;
 
-                    left = right + 1;
+                    left = right;
                 }
+                left += 1;
             }
         }
 
