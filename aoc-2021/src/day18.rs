@@ -125,21 +125,21 @@ impl SnailNumber {
 
     fn reduce(&mut self) {
         let mut hint = 0;
-        loop {
-            let mut reset = false;
-            while let Some(newhint) = self.explode(hint) {
-                reset = true;
-                hint = newhint;
-            }
+        while let Some(newhint) = self.explode(hint) {
+            hint = newhint;
+        }
 
-            if reset {
-                hint = 0;
-            }
+        if let Some(mut hint) = self.split(0) {
+            loop {
+                if let Some(newhint) = self.explode(hint) {
+                    hint = newhint;
+                }
 
-            if let Some(newhint) = self.split(hint) {
-                hint = newhint
-            } else {
-                break;
+                if let Some(newhint) = self.split(hint) {
+                    hint = newhint
+                } else {
+                    break;
+                }
             }
         }
     }
