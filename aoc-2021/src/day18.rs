@@ -57,21 +57,22 @@ pub fn parse_input(input: &str) -> Vec<SnailNumber> {
 #[derive(Debug, Default, Clone)]
 pub struct SnailNumber(Vec<(u8, usize)>);
 
-fn push(n: &Expr, depth: usize, sn: &mut SnailNumber) {
-    match n {
-        Expr::Pair(a, b) => {
-            push(a, depth + 1, sn);
-            push(b, depth + 1, sn);
-        }
-        Expr::Value(v) => {
-            sn.0.push((*v, depth));
-        }
-    }
-}
-
 impl SnailNumber {
     fn parse(n: &Expr) -> Self {
         let mut sn = SnailNumber::default();
+
+        fn push(n: &Expr, depth: usize, sn: &mut SnailNumber) {
+            match n {
+                Expr::Pair(a, b) => {
+                    push(a, depth + 1, sn);
+                    push(b, depth + 1, sn);
+                }
+                Expr::Value(v) => {
+                    sn.0.push((*v, depth));
+                }
+            }
+        }
+
         push(n, 0, &mut sn);
         sn
     }
