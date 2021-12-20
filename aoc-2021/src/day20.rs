@@ -30,7 +30,7 @@ pub fn parse_input(input: &str) -> (Vec<u8>, Vec<u8>) {
     (algorithm, image)
 }
 
-fn eval(point: usize, image: &[u8], width: usize, default: u8) -> u16 {
+fn window(point: usize, image: &[u8], width: usize, default: u8) -> u16 {
     let window = [
         point
             .checked_sub(1)
@@ -63,10 +63,10 @@ fn eval(point: usize, image: &[u8], width: usize, default: u8) -> u16 {
         .fold(0, |acc, b| acc << 1 | b)
 }
 
-fn step(image: &[u8], width: usize, algo: &[u8], flip: bool) -> (Vec<u8>, usize) {
-    let default = if flip { 1 } else { 0 };
-    let height = image.len() / width;
+fn step(image: &[u8], width: usize, algorithm: &[u8], generation: usize) -> (Vec<u8>, usize) {
+    let default = if generation % 2 != 0 { algorithm[0] } else { 0 };
 
+    let height = image.len() / width;
     let new_width = width + GROW * 2;
     let new_height = height + GROW * 2;
     let mut enlarged = vec![default; new_width * new_height];
@@ -79,8 +79,8 @@ fn step(image: &[u8], width: usize, algo: &[u8], flip: bool) -> (Vec<u8>, usize)
 
     let mut new_image = enlarged.clone();
     for (pos, cell) in new_image.iter_mut().enumerate() {
-        let score = eval(pos, &enlarged, new_width, default);
-        *cell = algo[score as usize];
+        let score = window(pos, &enlarged, new_width, default);
+        *cell = algorithm[score as usize];
     }
 
     (new_image, new_width)
@@ -91,11 +91,10 @@ fn solve<const N: usize>(algorithm: &[u8], image: &[u8]) -> usize {
     let mut image = image.to_vec();
 
     for generation in 0..N {
-        let flip = algorithm[0] == 1 && generation % 2 != 0;
-        (image, width) = step(&image, width, algorithm, flip);
+        (image, width) = step(&image, width, algorithm, generation);
     }
 
-    image.iter().filter(|&x| *x == 1).count()
+    image.iter().filter(|&&cell| cell == 1).count()
 }
 
 pub fn part1((algorithm, image): &(Vec<u8>, Vec<u8>)) -> usize {
