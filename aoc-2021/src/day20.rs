@@ -30,7 +30,7 @@ pub fn parse_input(input: &str) -> (Vec<u8>, Vec<u8>) {
     (algorithm, image)
 }
 
-fn window(point: usize, image: &[u8], width: usize, default: u8) -> u16 {
+fn window_fresh(point: usize, image: &[u8], width: usize, default: u8) -> u16 {
     let window = [
         point
             .checked_sub(1)
@@ -63,6 +63,35 @@ fn window(point: usize, image: &[u8], width: usize, default: u8) -> u16 {
         .fold(0, |acc, bit| acc << 1 | bit)
 }
 
+fn window(point: usize, prev: u16, image: &[u8], width: usize, default: u8) -> u16 {
+    let newy = point % width == 0;
+    if newy {
+        window_fresh(point, image, width, default)
+    } else {
+        let newdata = [
+            point
+                .checked_add(1)
+                .filter(|p| p % width != 0)
+                .and_then(|p| p.checked_sub(width)),
+            point.checked_add(1).filter(|p| p % width != 0),
+            point
+                .checked_add(1)
+                .filter(|p| p % width != 0)
+                .and_then(|p| p.checked_add(width))
+                .filter(|&p| p < width * width),
+        ];
+
+        let mut a = (prev & 0b000000111) << 1 & 0b000000111;
+        a |= newdata[2].map(|p| image[p]).unwrap_or(default) as u16;
+        let mut b = (prev & 0b000111000) << 1 & 0b000111000;
+        b |= (newdata[1].map(|p| image[p]).unwrap_or(default) as u16) << 3;
+        let mut c = (prev & 0b111000000) << 1 & 0b111000000;
+        c |= (newdata[0].map(|p| image[p]).unwrap_or(default) as u16) << 6;
+
+        a | b | c
+    }
+}
+
 fn step(image: &[u8], width: usize, algorithm: &[u8], generation: usize) -> (Vec<u8>, usize) {
     let default = if generation % 2 != 0 { algorithm[0] } else { 0 };
 
@@ -78,8 +107,9 @@ fn step(image: &[u8], width: usize, algorithm: &[u8], generation: usize) -> (Vec
     }
 
     let mut new_image = enlarged.clone();
+    let mut score = 0;
     for (pos, cell) in new_image.iter_mut().enumerate() {
-        let score = window(pos, &enlarged, new_width, default);
+        score = window(pos, score, &enlarged, new_width, default);
         *cell = algorithm[score as usize];
     }
 
