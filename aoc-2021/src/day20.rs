@@ -30,7 +30,11 @@ pub fn parse_input(input: &str) -> (Vec<u8>, Vec<u8>) {
     (algorithm, image)
 }
 
-fn window_fresh(point: usize, image: &[u8], width: usize, default: u8) -> u16 {
+fn index(image: &[u8], pos: Option<usize>, default: u8) -> u16 {
+    pos.map(|p| image[p]).unwrap_or(default) as u16
+}
+
+fn full_window(point: usize, image: &[u8], width: usize, default: u8) -> u16 {
     let window = [
         point
             .checked_sub(1)
@@ -59,14 +63,13 @@ fn window_fresh(point: usize, image: &[u8], width: usize, default: u8) -> u16 {
 
     window
         .iter()
-        .map(|point| point.map(|p| image[p]).unwrap_or(default) as u16)
+        .map(|&point| index(image, point, default))
         .fold(0, |acc, bit| acc << 1 | bit)
 }
 
 fn window(point: usize, prev: u16, image: &[u8], width: usize, default: u8) -> u16 {
-    let newy = point % width == 0;
-    if newy {
-        window_fresh(point, image, width, default)
+    if point % width == 0 {
+        full_window(point, image, width, default)
     } else {
         let newdata = [
             point
@@ -81,14 +84,12 @@ fn window(point: usize, prev: u16, image: &[u8], width: usize, default: u8) -> u
                 .filter(|&p| p < width * width),
         ];
 
-        let mut a = (prev & 0b000000111) << 1 & 0b000000111;
-        a |= newdata[2].map(|p| image[p]).unwrap_or(default) as u16;
-        let mut b = (prev & 0b000111000) << 1 & 0b000111000;
-        b |= (newdata[1].map(|p| image[p]).unwrap_or(default) as u16) << 3;
-        let mut c = (prev & 0b111000000) << 1 & 0b111000000;
-        c |= (newdata[0].map(|p| image[p]).unwrap_or(default) as u16) << 6;
-
-        a | b | c
+        (prev & 0b111000000) << 1 & 0b111000000
+            | index(image, newdata[0], default) << 6
+            | (prev & 0b000111000) << 1 & 0b000111000
+            | index(image, newdata[1], default) << 3
+            | (prev & 0b000000111) << 1 & 0b000000111
+            | index(image, newdata[2], default)
     }
 }
 
