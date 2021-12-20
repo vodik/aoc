@@ -59,8 +59,8 @@ fn window(point: usize, image: &[u8], width: usize, default: u8) -> u16 {
 
     window
         .iter()
-        .map(|p| (p.map(|p| image[p]).unwrap_or(default) as u16))
-        .fold(0, |acc, b| acc << 1 | b)
+        .map(|point| point.map(|p| image[p]).unwrap_or(default) as u16)
+        .fold(0, |acc, bit| acc << 1 | bit)
 }
 
 fn step(image: &[u8], width: usize, algorithm: &[u8], generation: usize) -> (Vec<u8>, usize) {
@@ -87,14 +87,17 @@ fn step(image: &[u8], width: usize, algorithm: &[u8], generation: usize) -> (Vec
 }
 
 fn solve<const N: usize>(algorithm: &[u8], image: &[u8]) -> usize {
-    let mut width = WIDTH;
-    let mut image = image.to_vec();
+    let width = WIDTH;
+    let image = image.to_vec();
 
-    for generation in 0..N {
-        (image, width) = step(&image, width, algorithm, generation);
-    }
-
-    image.iter().filter(|&&cell| cell == 1).count()
+    (0..N)
+        .fold((image, width), |(image, width), generation| {
+            step(&image, width, algorithm, generation)
+        })
+        .0
+        .iter()
+        .filter(|&&cell| cell == 1)
+        .count()
 }
 
 pub fn part1((algorithm, image): &(Vec<u8>, Vec<u8>)) -> usize {
