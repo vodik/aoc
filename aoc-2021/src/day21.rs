@@ -1,11 +1,44 @@
-use std::collections::HashMap;
+use nom::{
+    bytes::complete::tag,
+    character::complete::digit1,
+    combinator::{all_consuming, map_res, opt, recognize},
+    error::Error,
+    sequence::{preceded, separated_pair, terminated, tuple},
+    Finish, IResult,
+};
+use std::str::FromStr;
 
-pub fn parse_input(inpuy: &str) -> (usize, usize) {
-    (8, 1)
+fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
+    map_res(recognize(tuple((opt(tag("-")), digit1))), FromStr::from_str)(input)
+}
+
+fn parse_rule(input: &str) -> IResult<&str, u16> {
+    preceded(
+        tuple((tag("Player "), digit1, tag(" starting position: "))),
+        number,
+    )(input)
+}
+
+fn parse_state(input: &str) -> IResult<&str, (u16, u16)> {
+    separated_pair(parse_rule, tag("\n"), parse_rule)(input)
+}
+
+pub fn parse_input(input: &str) -> (u16, u16) {
+    match all_consuming(terminated(parse_state, tag("\n")))(input).finish() {
+        Ok((_, output)) => Ok(output),
+        Err(Error { input, code }) => Err(Error {
+            input: input.to_string(),
+            code,
+        }),
+    }
+    .unwrap()
 }
 
 #[derive(Debug, Default)]
-struct DeterministicDie(u8, usize);
+struct DeterministicDie {
+    state: u32,
+    rolls: usize,
+}
 
 fn triangle(n: u32) -> u32 {
     n * (n + 1) / 2
@@ -17,118 +50,162 @@ impl DeterministicDie {
     }
 
     fn roll(&mut self) -> u16 {
-        // triangle number to n - previous roll!
-        if self.0 + 3 <= 100 {
-            let roll = triangle(self.0 as u32 + 3) - triangle(self.0 as u32);
-            self.0 += 3;
-            self.1 += 3;
+        if self.state + 3 <= 100 {
+            let roll = triangle(self.state + 3) - triangle(self.state);
+            self.state += 3;
+            self.rolls += 3;
             roll as u16
         } else {
             let mut roll = 0;
-            self.0 = self.0 % 100 + 1;
-            roll += self.0 as u16;
-            self.0 = self.0 % 100 + 1;
-            roll += self.0 as u16;
-            self.0 = self.0 % 100 + 1;
-            roll += self.0 as u16;
-            self.1 += 3;
-            roll
+            for _ in 0..3 {
+                self.state = self.state % 100 + 1;
+                roll += self.state;
+            }
+            self.rolls += 3;
+            roll as u16
         }
     }
 
     fn count(&self) -> usize {
-        self.1
+        self.rolls
     }
 }
 
-pub fn part1(input: &(usize, usize)) -> usize {
+#[derive(Clone, Copy)]
+struct Player {
+    position: u16,
+    score: u16,
+}
+
+impl Player {
+    fn new(position: u16) -> Self {
+        Self { position, score: 0 }
+    }
+
+    fn advance(&mut self, rolls: u16) {
+        self.position = (self.position + rolls - 1) % 10 + 1;
+        self.score += self.position;
+    }
+
+    fn score(&self) -> usize {
+        self.score as usize
+    }
+}
+
+struct State(Player, Player);
+
+impl State {
+    fn pack(&self) -> usize {
+        ((self.0.score * 10 + self.0.position) as usize & 0b11111111) << 8
+            | ((self.1.score * 10 + self.1.position) as usize & 0b11111111)
+    }
+
+    fn unpack(index: usize) -> Self {
+        let player1 = ((index >> 8) & 0b11111111) as u16;
+        let player2 = (index & 0b11111111) as u16;
+
+        Self(
+            Player {
+                position: player1 % 10,
+                score: player1 / 10,
+            },
+            Player {
+                position: player2 % 10,
+                score: player2 / 10,
+            },
+        )
+    }
+}
+
+pub fn part1(input: &(u16, u16)) -> usize {
     let mut die = DeterministicDie::new();
 
-    let mut player1 = 8;
-    let mut player1_2 = 0;
-    let mut player2 = 1;
-    let mut player2_2 = 0;
+    let mut player1 = Player::new(input.0);
+    let mut player2 = Player::new(input.1);
 
     for _ in 0.. {
         let rolls = die.roll();
-        player1 += rolls;
-        player1 %= 10;
-        player1_2 += if player1 == 0 { 10 } else { player1 as usize };
+        player1.advance(rolls);
 
-        if player1_2 >= 1000 {
-            return player2_2 * die.count();
+        if player1.score() >= 1000 {
+            return player2.score() * die.count();
         }
 
         let rolls = die.roll();
-        player2 += rolls;
-        player2 %= 10;
-        player2_2 += if player2 == 0 { 10 } else { player2 as usize };
+        player2.advance(rolls);
 
-        if player2_2 >= 1000 {
-            return player1_2 * die.count();
+        if player2.score() >= 1000 {
+            return player2.score() * die.count();
         }
     }
 
     0
 }
 
-const ROLLS: [(u16, usize); 7] = [(3, 1), (4, 3), (5, 6), (6, 7), (7, 6), (8, 3), (9, 1)];
+pub fn part2(input: &(u16, u16)) -> usize {
+    const ROLLS: [(u16, usize); 7] = [(3, 1), (4, 3), (5, 6), (6, 7), (7, 6), (8, 3), (9, 1)];
 
-pub fn part2(input: &(usize, usize)) -> usize {
-    let mut games = HashMap::with_capacity(36);
-    for (score, times1) in &ROLLS {
-        let mut pos1 = 8 + score;
-        pos1 %= 10;
-        let points1 = if pos1 == 0 { 10 } else { pos1 as usize };
+    let mut counter = [0usize; 0xd2d3];
 
-        for (score, times2) in &ROLLS {
-            let mut pos2 = 1 + score;
-            pos2 %= 10;
-            let points2 = if pos2 == 0 { 10 } else { pos2 as usize };
+    for (roll, wins) in &ROLLS {
+        let mut player1 = Player::new(input.0);
+        player1.advance(*roll);
 
-            games.insert((pos1, pos2, points1, points2), times1 * times2);
+        for (roll, times) in &ROLLS {
+            let wins = wins * times;
+            let mut player2 = Player::new(input.1);
+            player2.advance(*roll);
+
+            let state = State(player1, player2);
+            counter[state.pack()] += wins;
         }
     }
 
-    let mut player1 = 0;
-    let mut player2 = 0;
+    let mut wins1 = 0;
+    let mut wins2 = 0;
 
     loop {
-        let mut games_new = HashMap::with_capacity(10560);
+        let mut dirty = false;
+        let mut next = [0usize; 0xd2d3];
 
-        for ((pos1, pos2, points1, points2), current) in games {
-            for (score, times1) in &ROLLS {
-                let mut pos1 = pos1 + score;
-                pos1 %= 10;
-                let points1 = points1 + if pos1 == 0 { 10 } else { pos1 as usize };
+        for (index, &wins) in counter.iter().enumerate() {
+            if wins == 0 {
+                continue;
+            }
 
-                if points1 >= 21 {
-                    player1 += current * times1;
+            let State(player1, player2) = State::unpack(index);
+
+            for (roll, times) in &ROLLS {
+                let wins = wins * times;
+                let mut player1 = player1;
+                player1.advance(*roll);
+
+                if player1.score() >= 21 {
+                    wins1 += wins;
                     continue;
                 }
 
-                for (score, times2) in &ROLLS {
-                    let mut pos2 = pos2 + score;
-                    pos2 %= 10;
-                    let points2 = points2 + if pos2 == 0 { 10 } else { pos2 as usize };
+                for (roll, times) in &ROLLS {
+                    let wins = wins * times;
+                    let mut player2 = player2;
+                    player2.advance(*roll);
 
-                    if points2 >= 21 {
-                        player2 += current * (times1 * times2);
+                    if player2.score() >= 21 {
+                        wins2 += wins;
                         continue;
                     }
 
-                    *games_new.entry((pos1, pos2, points1, points2)).or_default() +=
-                        current * (times1 * times2);
+                    let state = State(player1, player2);
+                    next[state.pack()] += wins;
+                    dirty = true;
                 }
             }
         }
 
-        if games_new.is_empty() {
-            break;
+        if !dirty {
+            break wins1.max(wins2);
         }
 
-        games = games_new;
+        counter = next;
     }
-
-    player1.max(player2)
 }
