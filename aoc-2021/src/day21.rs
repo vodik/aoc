@@ -91,13 +91,13 @@ struct State(Player, Player);
 
 impl State {
     fn pack(&self) -> usize {
-        ((self.0.score * 10 + self.0.position) as usize & 0b11111111) << 8
-            | ((self.1.score * 10 + self.1.position) as usize & 0b11111111)
+        ((self.0.score * 10 + self.0.position) as usize & 0xFF) << 8
+            | ((self.1.score * 10 + self.1.position) as usize & 0xFF)
     }
 
     fn unpack(index: usize) -> Self {
-        let player1 = ((index >> 8) & 0b11111111) as u16;
-        let player2 = (index & 0b11111111) as u16;
+        let player1 = ((index >> 8) & 0xFF) as u16;
+        let player2 = (index & 0xFF) as u16;
 
         Self(
             Player {
