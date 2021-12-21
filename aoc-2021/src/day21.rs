@@ -7,6 +7,10 @@ pub fn parse_input(inpuy: &str) -> (usize, usize) {
 #[derive(Debug, Default)]
 struct DeterministicDie(u8, usize);
 
+fn triangle(n: u32) -> u32 {
+    n * (n + 1) / 2
+}
+
 impl DeterministicDie {
     fn new() -> Self {
         Self::default()
@@ -14,17 +18,28 @@ impl DeterministicDie {
 
     fn roll(&mut self) -> u16 {
         // triangle number to n - previous roll!
-        self.0 = self.0 % 100 + 1;
-        self.1 += 1;
-        self.0 as u16
+        if self.0 + 3 <= 100 {
+            let roll = triangle(self.0 as u32 + 3) - triangle(self.0 as u32);
+            self.0 += 3;
+            self.1 += 3;
+            roll as u16
+        } else {
+            let mut roll = 0;
+            self.0 = self.0 % 100 + 1;
+            roll += self.0 as u16;
+            self.0 = self.0 % 100 + 1;
+            roll += self.0 as u16;
+            self.0 = self.0 % 100 + 1;
+            roll += self.0 as u16;
+            self.1 += 3;
+            roll
+        }
     }
 
     fn count(&self) -> usize {
         self.1
     }
 }
-
-const ROLLS: [(u16, usize); 7] = [(3, 1), (4, 3), (5, 6), (6, 7), (7, 6), (8, 3), (9, 1)];
 
 pub fn part1(input: &(usize, usize)) -> usize {
     let mut die = DeterministicDie::new();
@@ -34,8 +49,8 @@ pub fn part1(input: &(usize, usize)) -> usize {
     let mut player2 = 1;
     let mut player2_2 = 0;
 
-    for generation in 0.. {
-        let rolls = die.roll() + die.roll() + die.roll();
+    for _ in 0.. {
+        let rolls = die.roll();
         player1 += rolls;
         player1 %= 10;
         player1_2 += if player1 == 0 { 10 } else { player1 as usize };
@@ -44,7 +59,7 @@ pub fn part1(input: &(usize, usize)) -> usize {
             return player2_2 * die.count();
         }
 
-        let rolls = die.roll() + die.roll() + die.roll();
+        let rolls = die.roll();
         player2 += rolls;
         player2 %= 10;
         player2_2 += if player2 == 0 { 10 } else { player2 as usize };
@@ -56,6 +71,8 @@ pub fn part1(input: &(usize, usize)) -> usize {
 
     0
 }
+
+const ROLLS: [(u16, usize); 7] = [(3, 1), (4, 3), (5, 6), (6, 7), (7, 6), (8, 3), (9, 1)];
 
 pub fn part2(input: &(usize, usize)) -> usize {
     let mut games = HashMap::with_capacity(36);
