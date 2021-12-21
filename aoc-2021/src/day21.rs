@@ -34,7 +34,7 @@ pub fn parse_input(input: &str) -> (u16, u16) {
     .unwrap()
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct DeterministicDie {
     state: u16,
     rolls: usize,
@@ -42,30 +42,16 @@ struct DeterministicDie {
 
 impl DeterministicDie {
     fn new() -> Self {
-        Self::default()
+        Self { state: 7, rolls: 0 }
     }
 
     fn roll(&mut self) -> u16 {
         self.rolls += 3;
-        match self.state {
-            98 => {
-                self.state = 1;
-                99 + 100 + 1
-            }
-            99 => {
-                self.state = 2;
-                100 + 1 + 2
-            }
-            100 => {
-                self.state = 3;
-                1 + 2 + 3
-            }
-            _ => {
-                let n = self.state;
-                self.state += 3;
-                3 * n + 6 // T_n + 3 - T_n
-            }
+        self.state -= 1;
+        if self.state == 0 {
+            self.state = 10;
         }
+        self.state
     }
 
     fn count(&self) -> usize {
