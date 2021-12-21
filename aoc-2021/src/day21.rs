@@ -81,12 +81,12 @@ struct Player {
 
 impl Player {
     fn new(position: u16) -> Self {
-        Self { position, score: 0 }
+        Self { position: position - 1, score: 0 }
     }
 
     fn advance(&mut self, rolls: u16) {
-        self.position = (self.position + rolls - 1) % 10 + 1;
-        self.score += self.position;
+        self.position = (self.position + rolls) % 10;
+        self.score += self.position + 1;
     }
 
     fn score(&self) -> usize {
