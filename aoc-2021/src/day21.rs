@@ -36,12 +36,8 @@ pub fn parse_input(input: &str) -> (u16, u16) {
 
 #[derive(Debug, Default)]
 struct DeterministicDie {
-    state: u32,
+    state: u16,
     rolls: usize,
-}
-
-fn triangle(n: u32) -> u32 {
-    n * (n + 1) / 2
 }
 
 impl DeterministicDie {
@@ -50,19 +46,18 @@ impl DeterministicDie {
     }
 
     fn roll(&mut self) -> u16 {
+        self.rolls += 3;
         if self.state + 3 <= 100 {
-            let roll = triangle(self.state + 3) - triangle(self.state);
+            let roll = 3 * self.state + 6; // T_n + 3 - T_n
             self.state += 3;
-            self.rolls += 3;
-            roll as u16
+            roll
         } else {
             let mut roll = 0;
             for _ in 0..3 {
                 self.state = self.state % 100 + 1;
                 roll += self.state;
             }
-            self.rolls += 3;
-            roll as u16
+            roll
         }
     }
 
