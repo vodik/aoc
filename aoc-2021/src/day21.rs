@@ -47,17 +47,24 @@ impl DeterministicDie {
 
     fn roll(&mut self) -> u16 {
         self.rolls += 3;
-        if self.state + 3 <= 100 {
-            let roll = 3 * self.state + 6; // T_n + 3 - T_n
-            self.state += 3;
-            roll
-        } else {
-            let mut roll = 0;
-            for _ in 0..3 {
-                self.state = self.state % 100 + 1;
-                roll += self.state;
+        match self.state {
+            98 => {
+                self.state = 1;
+                99 + 100 + 1
             }
-            roll
+            99 => {
+                self.state = 2;
+                100 + 1 + 2
+            }
+            100 => {
+                self.state = 3;
+                1 + 2 + 3
+            }
+            _ => {
+                let n = self.state;
+                self.state += 3;
+                3 * n + 6 // T_n + 3 - T_n
+            }
         }
     }
 
