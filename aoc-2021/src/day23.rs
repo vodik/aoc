@@ -96,16 +96,11 @@ impl Burrow {
         let start = a.min(b);
         let end = a.max(b);
 
-        for pos in start..end + 1 {
-            let mask = 1 << (pos * 2 + 2);
-            if hallway & mask == mask {
-                return false;
-            }
-        }
-        true
+        let mask = (start..end).fold(0, |acc, pos| acc | 1 << 4 - pos);
+        hallway & mask == 0
     }
 
-    fn commit(&mut self, (pos, pod, mask1, mask2, _): (usize, Amphipod, u32, u32, usize)) {
+    fn commit(&mut self, (pod, mask1, mask2, _): (Amphipod, u32, u32, usize)) {
         match pod {
             Amphipod::Amber => {
                 self.amber &= !mask1;
@@ -125,25 +120,21 @@ impl Burrow {
             }
         }
 
-        if pos == 0 && self.is_room_empty(0) && self.amber < 127 {
-            self.amber = 0;
+        if self.is_room_empty(0) {
+            self.amber &= !0b1111111;
         }
-        if pos == 1 && self.is_room_empty(1) && self.bronze < 127 {
-            self.bronze = 0;
+        if self.is_room_empty(1) {
+            self.bronze &= !0b1111111;
         }
-        if pos == 2 && self.is_room_empty(2) && self.copper < 127 {
-            self.copper = 0;
+        if self.is_room_empty(2) {
+            self.copper &= !0b1111111;
         }
-        if pos == 3 && self.is_room_empty(3) && self.desert < 127 {
-            self.desert = 0;
+        if self.is_room_empty(3) {
+            self.desert &= !0b1111111;
         }
     }
 
-    // Move(
-    //    pod, mask  -  for removal
-    //    hallway position
-    //    simulated cost
-    fn moves(&self, pos: usize) -> Option<Vec<(usize, Amphipod, u32, u32, usize)>> {
+    fn moves(&self, pos: usize) -> Option<Vec<(Amphipod, u32, u32, usize)>> {
         let room = self.room(pos);
         if room == 0 {
             return None;
@@ -184,54 +175,95 @@ impl Burrow {
         };
 
         if !self.has_path(pos, target) {
-            return None;
+            // START HACK
+            let basecost = abs(pos, target) * 2;
+            let hallway = self.hallway();
+            let mut moves = Vec::with_capacity(6);
+
+            const COSTS: [usize; 8] = [0, 2, 2, 4, 4, 4, 2, 2];
+
+            let mut first = true;
+            if pos < target {
+                let end = pos.min(target);
+                moves.extend((0..end + 2).rev().scan(basecost, |inc, offset| {
+                    let mask2 = 1u32 << (6 - offset);
+                    let c = if first {
+                        let r = *inc + 2;
+                        *inc += COSTS[offset];
+                        first = false;
+                        r
+                    } else {
+                        *inc += COSTS[offset];
+                        *inc
+                    };
+                    (mask2 & hallway == 0).then(|| (pod, mask, mask2, c * pod.energy()))
+                }));
+            } else {
+                let start = pos.max(target);
+                moves.extend((start + 2..7).scan(basecost, |inc, offset| {
+                    let mask2 = 1u32 << (6 - offset);
+                    let c = if first {
+                        let r = *inc + 2;
+                        *inc += COSTS[offset];
+                        first = false;
+                        r
+                    } else {
+                        *inc += COSTS[offset];
+                        *inc
+                    };
+                    (mask2 & hallway == 0).then(|| (pod, mask, mask2, c * pod.energy()))
+                }));
+            }
+
+            return (!moves.is_empty()).then(|| moves);
         }
 
         let basecost = abs(pos, target) * 2;
         if self.is_room_empty(target) {
-            return Some(vec![(pos, pod, mask, 0, basecost * pod.energy())]);
+            return Some(vec![(pod, mask, 0, basecost * pod.energy())]);
         }
 
         let hallway = self.hallway();
         let mut moves = Vec::with_capacity(6);
+        let basecost = abs(target, pos) * 2;
 
-        const COSTS: [usize; 7] = [2, 4, 4, 4, 4, 4, 2];
+        const COSTS: [usize; 7] = [2, 2, 4, 4, 4, 2, 2];
 
         // left
-        let start = match pos.min(target) {
-            0 => 5,
-            1 => 4,
-            2 => 3,
-            3 => 2,
-            _ => unreachable!(),
-        };
-
-        moves.extend((start..7).scan(basecost + 2, |inc, offset| {
-            let mask2 = 1u32 << offset;
-            let &cost = COSTS.get(offset + 1).unwrap_or(&2);
-            let c = *inc;
-            *inc += cost;
-            (mask2 & hallway == 0).then(|| (pos, pod, mask, mask2, c * pod.energy()))
+        let end = pos.min(target);
+        let mut first = true;
+        moves.extend((0..end + 2).rev().scan(basecost, |inc, offset| {
+            let mask2 = 1u32 << (6 - offset);
+            let c = if first {
+                let r = *inc + 2;
+                *inc += COSTS[offset];
+                first = false;
+                r
+            } else {
+                *inc += COSTS[offset];
+                *inc
+            };
+            (mask2 & hallway == 0).then(|| (pod, mask, mask2, c * pod.energy()))
         }));
 
         // right
-        let end = match pos.max(target) {
-            0 => 4,
-            1 => 3,
-            2 => 2,
-            3 => 1,
-            _ => unreachable!(),
-        };
-
-        moves.extend((0..end + 1).rev().scan(basecost + 2, |inc, offset| {
-            let mask2 = 1u32 << offset;
-            let &cost = COSTS.get(offset + 1).unwrap_or(&2);
-            let c = *inc;
-            *inc += cost;
-            (mask2 & hallway == 0).then(|| (pos, pod, mask, mask2, c * pod.energy()))
+        let start = pos.max(target);
+        let mut first = true;
+        moves.extend((start + 2..7).scan(basecost, |inc, offset| {
+            let mask2 = 1u32 << (6 - offset);
+            let c = if first {
+                let r = *inc + 2;
+                *inc += COSTS[offset];
+                first = false;
+                r
+            } else {
+                *inc += COSTS[offset];
+                *inc
+            };
+            (mask2 & hallway == 0).then(|| (pod, mask, mask2, c * pod.energy()))
         }));
 
-        Some(moves)
+        (!moves.is_empty()).then(|| moves)
     }
 }
 
@@ -252,7 +284,7 @@ fn solve(rooms: &[&[Amphipod]; 4]) -> usize {
             if let Some(futures) = burrow.moves(t) {
                 for future in futures {
                     let mut burrow = burrow;
-                    let cost = cost + future.4;
+                    let cost = cost + future.3;
                     if cost < min {
                         burrow.commit(future);
                         if burrow.is_empty() {
@@ -328,5 +360,5 @@ pub fn part2(input: &()) -> usize {
         .sum();
 
     let transit_energy = solve(&rooms);
-    entry_energy(2) + exit_energy + transit_energy
+    entry_energy(4) + exit_energy + transit_energy
 }
