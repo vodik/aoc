@@ -1,21 +1,4 @@
-// use nom::{
-//     branch::alt,
-//     bytes::complete::tag,
-//     character::complete::digit1,
-//     combinator::{all_consuming, map, map_res, opt, recognize},
-//     error::Error,
-//     multi::separated_list1,
-//     sequence::{preceded, separated_pair, terminated, tuple},
-//     Finish, IResult,
-// };
-// use std::{
-//     cmp::min,
-//     collections::{HashMap, HashSet},
-//     ops::Range,
-//     str::FromStr,
-// };
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Amphipod {
     Amber,
     Bronze,
@@ -24,7 +7,7 @@ enum Amphipod {
 }
 
 impl Amphipod {
-    fn energy(&self) -> usize {
+    const fn energy(&self) -> usize {
         match self {
             Amphipod::Amber => 1,
             Amphipod::Bronze => 10,
@@ -34,8 +17,7 @@ impl Amphipod {
     }
 }
 
-pub fn parse_input(input: &str) -> () {
-    ()
+pub fn parse_input(_input: &str) {
     // match all_consuming(terminated(parse_ops, tag("\n")))(input).finish() {
     //     Ok((_, output)) => Ok(output),
     //     Err(Error { input, code }) => Err(Error {
@@ -46,8 +28,10 @@ pub fn parse_input(input: &str) -> () {
     // .unwrap();
 }
 
-const ENTER_ENERGY: usize = 3333;
-const ENTER_ENERGY2: usize = 11110;
+const fn entry_energy(n: usize) -> usize {
+    let base = n * (n + 1) / 2;
+    base + base * 10 + base * 100 + base * 1000
+}
 
 #[derive(Debug, Clone, Copy)]
 struct Burrow {
@@ -159,12 +143,10 @@ impl Burrow {
     //    pod, mask  -  for removal
     //    hallway position
     //    simulated cost
-    fn moves(&self, pos: usize) -> Vec<(usize, Amphipod, u32, u32, usize)> {
-        let mut moves = vec![];
-
+    fn moves(&self, pos: usize) -> Option<Vec<(usize, Amphipod, u32, u32, usize)>> {
         let room = self.room(pos);
         if room == 0 {
-            return moves;
+            return None;
         }
 
         let mut mask = None;
@@ -177,7 +159,7 @@ impl Burrow {
         }
 
         if mask.is_none() {
-            return moves;
+            return None;
         }
 
         let mb = (3 - pos) * 4 + 7;
@@ -191,7 +173,7 @@ impl Burrow {
         } else if self.desert & mask == mask {
             Amphipod::Desert
         } else {
-            return moves;
+            return None;
         };
 
         let target = match pod {
@@ -202,166 +184,54 @@ impl Burrow {
         };
 
         if !self.has_path(pos, target) {
-            return moves;
+            return None;
         }
 
         let basecost = abs(pos, target) * 2;
         if self.is_room_empty(target) {
-            moves.push((pos, pod, mask, 0, basecost * pod.energy()));
-            return moves;
+            return Some(vec![(pos, pod, mask, 0, basecost * pod.energy())]);
         }
+
+        let hallway = self.hallway();
+        let mut moves = Vec::with_capacity(6);
+
+        const COSTS: [usize; 7] = [2, 4, 4, 4, 4, 4, 2];
 
         // left
-        match pos.min(target) {
-            0 => {
-                let mask2 = 0b0100000;
-                if mask2 & self.hallway() == 0 {
-                    moves.push((pos, pod, mask, mask2, (basecost + 2) * pod.energy()));
-                    let mask2 = 0b1000000;
-                    if mask2 & self.hallway() == 0 {
-                        moves.push((pos, pod, mask, mask2, (basecost + 4) * pod.energy()));
-                    }
-                }
-            }
-            1 => {
-                let mask2 = 0b0010000;
-                if mask2 & self.hallway() == 0 {
-                    moves.push((pos, pod, mask, mask2, (basecost + 2) * pod.energy()));
-                    let mask2 = 0b0100000;
-                    if mask2 & self.hallway() == 0 {
-                        moves.push((pos, pod, mask, mask2, (basecost + 6) * pod.energy()));
-                        let mask2 = 0b1000000;
-                        if mask2 & self.hallway() == 0 {
-                            moves.push((pos, pod, mask, mask2, (basecost + 8) * pod.energy()));
-                        }
-                    }
-                }
-            }
-            2 => {
-                let mask2 = 0b0001000;
-                if mask2 & self.hallway() == 0 {
-                    moves.push((pos, pod, mask, mask2, (basecost + 2) * pod.energy()));
-                    let mask2 = 0b0010000;
-                    if mask2 & self.hallway() == 0 {
-                        moves.push((pos, pod, mask, mask2, (basecost + 6) * pod.energy()));
-                        let mask2 = 0b0100000;
-                        if mask2 & self.hallway() == 0 {
-                            moves.push((pos, pod, mask, mask2, (basecost + 10) * pod.energy()));
-                            let mask2 = 0b1000000;
-                            if mask2 & self.hallway() == 0 {
-                                moves.push((pos, pod, mask, mask2, (basecost + 12) * pod.energy()));
-                            }
-                        }
-                    }
-                }
-            }
-            3 => {
-                let mask2 = 0b0000100;
-                if mask2 & self.hallway() == 0 {
-                    moves.push((pos, pod, mask, mask2, (basecost + 2) * pod.energy()));
-                    let mask2 = 0b0001000;
-                    if mask2 & self.hallway() == 0 {
-                        moves.push((pos, pod, mask, mask2, (basecost + 6) * pod.energy()));
-                        let mask2 = 0b0010000;
-                        if mask2 & self.hallway() == 0 {
-                            moves.push((pos, pod, mask, mask2, (basecost + 10) * pod.energy()));
-                            let mask2 = 0b0100000;
-                            if mask2 & self.hallway() == 0 {
-                                moves.push((pos, pod, mask, mask2, (basecost + 14) * pod.energy()));
-                                let mask2 = 0b1000000;
-                                if mask2 & self.hallway() == 0 {
-                                    moves.push((
-                                        pos,
-                                        pod,
-                                        mask,
-                                        mask2,
-                                        (basecost + 16) * pod.energy(),
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        let start = match pos.min(target) {
+            0 => 5,
+            1 => 4,
+            2 => 3,
+            3 => 2,
             _ => unreachable!(),
-        }
+        };
+
+        moves.extend((start..7).scan(basecost + 2, |inc, offset| {
+            let mask2 = 1u32 << offset;
+            let &cost = COSTS.get(offset + 1).unwrap_or(&2);
+            let c = *inc;
+            *inc += cost;
+            (mask2 & hallway == 0).then(|| (pos, pod, mask, mask2, c * pod.energy()))
+        }));
 
         // right
-        match pos.max(target) {
-            3 => {
-                let mask2 = 0b0000010;
-                if mask2 & self.hallway() == 0 {
-                    moves.push((pos, pod, mask, mask2, (basecost + 2) * pod.energy()));
-                    let mask2 = 0b0000001;
-                    if mask2 & self.hallway() == 0 {
-                        moves.push((pos, pod, mask, mask2, (basecost + 4) * pod.energy()));
-                    }
-                }
-            }
-            2 => {
-                let mask2 = 0b0000100;
-                if mask2 & self.hallway() == 0 {
-                    moves.push((pos, pod, mask, mask2, (basecost + 2) * pod.energy()));
-                    let mask2 = 0b0000010;
-                    if mask2 & self.hallway() == 0 {
-                        moves.push((pos, pod, mask, mask2, (basecost + 6) * pod.energy()));
-                        let mask2 = 0b0000001;
-                        if mask2 & self.hallway() == 0 {
-                            moves.push((pos, pod, mask, mask2, (basecost + 8) * pod.energy()));
-                        }
-                    }
-                }
-            }
-            1 => {
-                let mask2 = 0b0001000;
-                if mask2 & self.hallway() == 0 {
-                    moves.push((pos, pod, mask, mask2, (basecost + 2) * pod.energy()));
-                    let mask2 = 0b0000100;
-                    if mask2 & self.hallway() == 0 {
-                        moves.push((pos, pod, mask, mask2, (basecost + 6) * pod.energy()));
-                        let mask2 = 0b0000010;
-                        if mask2 & self.hallway() == 0 {
-                            moves.push((pos, pod, mask, mask2, (basecost + 10) * pod.energy()));
-                            let mask2 = 0b0000001;
-                            if mask2 & self.hallway() == 0 {
-                                moves.push((pos, pod, mask, mask2, (basecost + 12) * pod.energy()));
-                            }
-                        }
-                    }
-                }
-            }
-            0 => {
-                let mask2 = 0b0010000;
-                if mask2 & self.hallway() == 0 {
-                    moves.push((pos, pod, mask, mask2, (basecost + 2) * pod.energy()));
-                    let mask2 = 0b0001000;
-                    if mask2 & self.hallway() == 0 {
-                        moves.push((pos, pod, mask, mask2, (basecost + 6) * pod.energy()));
-                        let mask2 = 0b0000100;
-                        if mask2 & self.hallway() == 0 {
-                            moves.push((pos, pod, mask, mask2, (basecost + 10) * pod.energy()));
-                            let mask2 = 0b0000010;
-                            if mask2 & self.hallway() == 0 {
-                                moves.push((pos, pod, mask, mask2, (basecost + 14) * pod.energy()));
-                                let mask2 = 0b0000001;
-                                if mask2 & self.hallway() == 0 {
-                                    moves.push((
-                                        pos,
-                                        pod,
-                                        mask,
-                                        mask2,
-                                        (basecost + 16) * pod.energy(),
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        let end = match pos.max(target) {
+            0 => 4,
+            1 => 3,
+            2 => 2,
+            3 => 1,
             _ => unreachable!(),
-        }
+        };
 
-        moves
+        moves.extend((0..end + 1).rev().scan(basecost + 2, |inc, offset| {
+            let mask2 = 1u32 << offset;
+            let &cost = COSTS.get(offset + 1).unwrap_or(&2);
+            let c = *inc;
+            *inc += cost;
+            (mask2 & hallway == 0).then(|| (pos, pod, mask, mask2, c * pod.energy()))
+        }));
+
+        Some(moves)
     }
 }
 
@@ -379,16 +249,17 @@ fn solve(rooms: &[&[Amphipod]; 4]) -> usize {
 
     while let Some((burrow, cost)) = stack.pop() {
         for t in (0..4).rev() {
-            let futures = burrow.moves(t);
-            for future in futures {
-                let mut burrow = burrow;
-                let cost = cost + future.4;
-                if cost < min {
-                    burrow.commit(future);
-                    if burrow.is_empty() {
-                        min = cost;
-                    } else {
-                        stack.push((burrow, cost));
+            if let Some(futures) = burrow.moves(t) {
+                for future in futures {
+                    let mut burrow = burrow;
+                    let cost = cost + future.4;
+                    if cost < min {
+                        burrow.commit(future);
+                        if burrow.is_empty() {
+                            min = cost;
+                        } else {
+                            stack.push((burrow, cost));
+                        }
                     }
                 }
             }
@@ -416,7 +287,7 @@ pub fn part1(input: &()) -> usize {
         .sum();
 
     let transit_energy = solve(&rooms);
-    ENTER_ENERGY + exit_energy + transit_energy
+    entry_energy(2) + exit_energy + transit_energy
 }
 
 pub fn part2(input: &()) -> usize {
@@ -457,5 +328,5 @@ pub fn part2(input: &()) -> usize {
         .sum();
 
     let transit_energy = solve(&rooms);
-    ENTER_ENERGY2 + exit_energy + transit_energy
+    entry_energy(2) + exit_energy + transit_energy
 }
