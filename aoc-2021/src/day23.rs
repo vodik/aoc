@@ -100,7 +100,7 @@ impl Burrow {
         hallway & mask == 0
     }
 
-    fn commit(&mut self, (pod, mask1, mask2, _): (Amphipod, u32, u32, usize)) {
+    fn commit(&mut self, pod: Amphipod, (mask1, mask2, _): (u32, u32, usize)) {
         match pod {
             Amphipod::Amber => {
                 self.amber &= !mask1;
@@ -121,20 +121,20 @@ impl Burrow {
         }
 
         if self.is_room_empty(0) {
-            self.amber &= !0b1111111;
+            self.amber &= !HALLWAY_MASK;
         }
         if self.is_room_empty(1) {
-            self.bronze &= !0b1111111;
+            self.bronze &= !HALLWAY_MASK;
         }
         if self.is_room_empty(2) {
-            self.copper &= !0b1111111;
+            self.copper &= !HALLWAY_MASK;
         }
         if self.is_room_empty(3) {
-            self.desert &= !0b1111111;
+            self.desert &= !HALLWAY_MASK;
         }
     }
 
-    fn moves(&self, pos: usize) -> Option<Vec<(Amphipod, u32, u32, usize)>> {
+    fn moves(&self, pos: usize) -> Option<(Amphipod, Vec<(u32, u32, usize)>)> {
         let room = self.room(pos);
         if room == 0 {
             return None;
@@ -174,14 +174,13 @@ impl Burrow {
             Amphipod::Desert => 3,
         };
 
+        const COSTS: [usize; 7] = [2, 2, 4, 4, 4, 2, 2];
+        let hallway = self.hallway();
+        let mut moves = Vec::with_capacity(7);
+        let basecost = abs(target, pos) * 2;
+
         if !self.has_path(pos, target) {
             // START HACK
-            let basecost = abs(pos, target) * 2;
-            let hallway = self.hallway();
-            let mut moves = Vec::with_capacity(6);
-
-            const COSTS: [usize; 8] = [0, 2, 2, 4, 4, 4, 2, 2];
-
             let mut first = true;
             if pos < target {
                 let end = pos.min(target);
@@ -196,7 +195,7 @@ impl Burrow {
                         *inc += COSTS[offset];
                         *inc
                     };
-                    (mask2 & hallway == 0).then(|| (pod, mask, mask2, c * pod.energy()))
+                    (mask2 & hallway == 0).then(|| (mask, mask2, c * pod.energy()))
                 }));
             } else {
                 let start = pos.max(target);
@@ -211,23 +210,16 @@ impl Burrow {
                         *inc += COSTS[offset];
                         *inc
                     };
-                    (mask2 & hallway == 0).then(|| (pod, mask, mask2, c * pod.energy()))
+                    (mask2 & hallway == 0).then(|| (mask, mask2, c * pod.energy()))
                 }));
             }
 
-            return (!moves.is_empty()).then(|| moves);
+            return (!moves.is_empty()).then(|| (pod, moves));
         }
 
-        let basecost = abs(pos, target) * 2;
         if self.is_room_empty(target) {
-            return Some(vec![(pod, mask, 0, basecost * pod.energy())]);
+            return Some((pod, vec![(mask, 0, basecost * pod.energy())]));
         }
-
-        let hallway = self.hallway();
-        let mut moves = Vec::with_capacity(6);
-        let basecost = abs(target, pos) * 2;
-
-        const COSTS: [usize; 7] = [2, 2, 4, 4, 4, 2, 2];
 
         // left
         let end = pos.min(target);
@@ -243,7 +235,7 @@ impl Burrow {
                 *inc += COSTS[offset];
                 *inc
             };
-            (mask2 & hallway == 0).then(|| (pod, mask, mask2, c * pod.energy()))
+            (mask2 & hallway == 0).then(|| (mask, mask2, c * pod.energy()))
         }));
 
         // right
@@ -260,10 +252,10 @@ impl Burrow {
                 *inc += COSTS[offset];
                 *inc
             };
-            (mask2 & hallway == 0).then(|| (pod, mask, mask2, c * pod.energy()))
+            (mask2 & hallway == 0).then(|| (mask, mask2, c * pod.energy()))
         }));
 
-        (!moves.is_empty()).then(|| moves)
+        (!moves.is_empty()).then(|| (pod, moves))
     }
 }
 
@@ -281,12 +273,12 @@ fn solve(rooms: &[&[Amphipod]; 4]) -> usize {
 
     while let Some((burrow, cost)) = stack.pop() {
         for t in (0..4).rev() {
-            if let Some(futures) = burrow.moves(t) {
+            if let Some((pod, futures)) = burrow.moves(t) {
                 for future in futures {
                     let mut burrow = burrow;
-                    let cost = cost + future.3;
+                    let cost = cost + future.2;
                     if cost < min {
-                        burrow.commit(future);
+                        burrow.commit(pod, future);
                         if burrow.is_empty() {
                             min = cost;
                         } else {
@@ -319,7 +311,9 @@ pub fn part1(input: &()) -> usize {
         .sum();
 
     let transit_energy = solve(&rooms);
-    entry_energy(2) + exit_energy + transit_energy
+    let r = entry_energy(2) + exit_energy + transit_energy;
+    assert_eq!(r, 18195);
+    r
 }
 
 pub fn part2(input: &()) -> usize {
@@ -360,5 +354,7 @@ pub fn part2(input: &()) -> usize {
         .sum();
 
     let transit_energy = solve(&rooms);
-    entry_energy(4) + exit_energy + transit_energy
+    let r = entry_energy(4) + exit_energy + transit_energy;
+    assert_eq!(r, 50265);
+    r
 }
