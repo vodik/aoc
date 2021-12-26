@@ -91,16 +91,16 @@ impl Burrow {
         self.flatten() >> 7 == 0
     }
 
-    fn has_path(&self, a: usize, b: usize) -> bool {
-        let hallway = self.hallway();
-        let start = a.min(b);
-        let end = a.max(b);
-
-        let mask = (start..end).fold(0, |acc, pos| acc | 1 << 4 - pos);
-        hallway & mask == 0
+    fn has_path(&self, start: usize, dist: usize) -> bool {
+        if dist == 0 {
+            true
+        } else {
+            let mask = ((2 << (dist - 1)) - 1) << (5 - dist - start);
+            self.hallway() & mask == 0
+        }
     }
 
-    fn commit(&mut self, pod: Amphipod, (mask1, mask2, _): (u32, u32, usize)) {
+    fn commit(&mut self, pod: Amphipod, mask1: u32, mask2: u32) {
         match pod {
             Amphipod::Amber => {
                 self.amber &= !mask1;
@@ -134,7 +134,7 @@ impl Burrow {
         }
     }
 
-    fn moves(&self, pos: usize) -> Option<(Amphipod, Vec<(u32, u32, usize)>)> {
+    fn moves(&self, pos: usize) -> Option<(Amphipod, u32, Vec<(u32, usize)>)> {
         let room = self.room(pos);
         if room == 0 {
             return None;
@@ -167,6 +167,7 @@ impl Burrow {
             return None;
         };
 
+        let energy = pod.energy();
         let target = match pod {
             Amphipod::Amber => 0,
             Amphipod::Bronze => 1,
@@ -177,93 +178,59 @@ impl Burrow {
         const COSTS: [usize; 7] = [2, 2, 4, 4, 4, 2, 2];
         let hallway = self.hallway();
         let mut moves = Vec::with_capacity(7);
-        let basecost = abs(target, pos) * 2;
 
-        if !self.has_path(pos, target) {
-            // START HACK
-            let mut first = true;
-            if pos < target {
-                let end = pos.min(target);
-                moves.extend((0..end + 2).rev().scan(basecost, |inc, offset| {
-                    let mask2 = 1u32 << (6 - offset);
-                    let c = if first {
-                        let r = *inc + 2;
-                        *inc += COSTS[offset];
-                        first = false;
-                        r
-                    } else {
-                        *inc += COSTS[offset];
-                        *inc
-                    };
-                    (mask2 & hallway == 0).then(|| (mask, mask2, c * pod.energy()))
-                }));
-            } else {
-                let start = pos.max(target);
-                moves.extend((start + 2..7).scan(basecost, |inc, offset| {
-                    let mask2 = 1u32 << (6 - offset);
-                    let c = if first {
-                        let r = *inc + 2;
-                        *inc += COSTS[offset];
-                        first = false;
-                        r
-                    } else {
-                        *inc += COSTS[offset];
-                        *inc
-                    };
-                    (mask2 & hallway == 0).then(|| (mask, mask2, c * pod.energy()))
-                }));
+        let (start, end) = if pos < target {
+            (pos, target)
+        } else {
+            (target, pos)
+        };
+
+        let dist = end - start;
+        let basecost = dist * 2;
+        let has_path = self.has_path(start, dist);
+
+        if has_path && self.is_room_empty(target) {
+            moves.push((0, basecost * energy));
+        } else {
+            if has_path || pos < target {
+                moves.extend(
+                    (0..start + 2)
+                        .rev()
+                        .map(|offset| (1 << (6 - offset), COSTS[offset]))
+                        .scan(0, |acc, (mask2, weight)| {
+                            let cost = if *acc == 0 {
+                                *acc += weight;
+                                2
+                            } else {
+                                *acc += weight;
+                                *acc
+                            };
+
+                            (mask2 & hallway == 0).then(|| (mask2, (basecost + cost) * energy))
+                        }),
+                );
             }
 
-            return (!moves.is_empty()).then(|| (pod, moves));
+            if has_path || target < pos {
+                moves.extend(
+                    (end + 2..7)
+                        .map(|offset| (1 << (6 - offset), COSTS[offset]))
+                        .scan(0, |acc, (mask2, weight)| {
+                            let cost = if *acc == 0 {
+                                *acc += weight;
+                                2
+                            } else {
+                                *acc += weight;
+                                *acc
+                            };
+
+                            (mask2 & hallway == 0).then(|| (mask2, (basecost + cost) * energy))
+                        }),
+                );
+            }
         }
 
-        if self.is_room_empty(target) {
-            return Some((pod, vec![(mask, 0, basecost * pod.energy())]));
-        }
-
-        // left
-        let end = pos.min(target);
-        let mut first = true;
-        moves.extend((0..end + 2).rev().scan(basecost, |inc, offset| {
-            let mask2 = 1u32 << (6 - offset);
-            let c = if first {
-                let r = *inc + 2;
-                *inc += COSTS[offset];
-                first = false;
-                r
-            } else {
-                *inc += COSTS[offset];
-                *inc
-            };
-            (mask2 & hallway == 0).then(|| (mask, mask2, c * pod.energy()))
-        }));
-
-        // right
-        let start = pos.max(target);
-        let mut first = true;
-        moves.extend((start + 2..7).scan(basecost, |inc, offset| {
-            let mask2 = 1u32 << (6 - offset);
-            let c = if first {
-                let r = *inc + 2;
-                *inc += COSTS[offset];
-                first = false;
-                r
-            } else {
-                *inc += COSTS[offset];
-                *inc
-            };
-            (mask2 & hallway == 0).then(|| (mask, mask2, c * pod.energy()))
-        }));
-
-        (!moves.is_empty()).then(|| (pod, moves))
-    }
-}
-
-fn abs(a: usize, b: usize) -> usize {
-    if a > b {
-        a - b
-    } else {
-        b - a
+        (!moves.is_empty()).then(|| (pod, mask, moves))
     }
 }
 
@@ -273,12 +240,12 @@ fn solve(rooms: &[&[Amphipod]; 4]) -> usize {
 
     while let Some((burrow, cost)) = stack.pop() {
         for t in (0..4).rev() {
-            if let Some((pod, futures)) = burrow.moves(t) {
+            if let Some((pod, mask, futures)) = burrow.moves(t) {
                 for future in futures {
                     let mut burrow = burrow;
-                    let cost = cost + future.2;
+                    let cost = cost + future.1;
                     if cost < min {
-                        burrow.commit(pod, future);
+                        burrow.commit(pod, mask, future.0);
                         if burrow.is_empty() {
                             min = cost;
                         } else {
