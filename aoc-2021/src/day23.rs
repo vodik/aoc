@@ -33,35 +33,16 @@ const fn entry_energy(n: usize) -> usize {
     base + base * 10 + base * 100 + base * 1000
 }
 
-#[derive(Debug, Clone, Copy)]
-struct Burrow {
-    amber: u32,
-    bronze: u32,
-    copper: u32,
-    desert: u32,
+#[derive(Debug, Default, Clone, Copy)]
+struct BitBoard {
+    amber: u8,
+    bronze: u8,
+    copper: u8,
+    desert: u8,
 }
 
-const HALLWAY_MASK: u32 = 0b1111111;
-
-impl Burrow {
-    fn new(rooms: &[&[Amphipod]; 4]) -> Self {
-        let mut amber = 0;
-        let mut bronze = 0;
-        let mut copper = 0;
-        let mut desert = 0;
-
-        for (room, members) in rooms.iter().rev().enumerate() {
-            for (idx, pod) in members.iter().enumerate() {
-                let mask = 1 << (idx + 4 * room + 7) as u32;
-                match pod {
-                    Amphipod::Amber => amber |= mask,
-                    Amphipod::Bronze => bronze |= mask,
-                    Amphipod::Copper => copper |= mask,
-                    Amphipod::Desert => desert |= mask,
-                };
-            }
-        }
-
+impl BitBoard {
+    fn new(amber: u8, bronze: u8, copper: u8, desert: u8) -> Self {
         Self {
             amber,
             bronze,
@@ -70,91 +51,30 @@ impl Burrow {
         }
     }
 
-    fn flatten(&self) -> u32 {
+    fn flatten(&self) -> u8 {
         self.amber | self.bronze | self.copper | self.desert
     }
 
-    fn hallway(&self) -> u32 {
-        self.flatten() & HALLWAY_MASK
-    }
-
-    fn room(&self, pos: usize) -> u32 {
-        let shift = (3 - pos) * 4 + 7;
-        self.flatten() >> shift & 0b1111
-    }
-
-    fn is_room_empty(&self, pos: usize) -> bool {
-        self.room(pos) == 0
-    }
-
     fn is_empty(&self) -> bool {
-        self.flatten() >> 7 == 0
+        self.flatten() == 0
     }
 
-    fn has_path(&self, start: usize, dist: usize) -> bool {
-        if dist == 0 {
-            true
-        } else {
-            let mask = ((2 << (dist - 1)) - 1) << (5 - dist - start);
-            self.hallway() & mask == 0
-        }
-    }
-
-    fn commit(&mut self, pod: Amphipod, mask1: u32, mask2: u32) {
-        match pod {
-            Amphipod::Amber => {
-                self.amber &= !mask1;
-                self.amber |= mask2;
-            }
-            Amphipod::Bronze => {
-                self.bronze &= !mask1;
-                self.bronze |= mask2;
-            }
-            Amphipod::Copper => {
-                self.copper &= !mask1;
-                self.copper |= mask2;
-            }
-            Amphipod::Desert => {
-                self.desert &= !mask1;
-                self.desert |= mask2;
-            }
-        }
-
-        if self.is_room_empty(0) {
-            self.amber &= !HALLWAY_MASK;
-        }
-        if self.is_room_empty(1) {
-            self.bronze &= !HALLWAY_MASK;
-        }
-        if self.is_room_empty(2) {
-            self.copper &= !HALLWAY_MASK;
-        }
-        if self.is_room_empty(3) {
-            self.desert &= !HALLWAY_MASK;
-        }
-    }
-
-    fn moves(&self, pos: usize) -> Option<(Amphipod, u32, Vec<(u32, usize)>)> {
-        let room = self.room(pos);
-        if room == 0 {
+    fn extract(&self) -> Option<(Amphipod, u8)> {
+        let bits = self.flatten();
+        if bits == 0 {
             return None;
         }
 
         let mut mask = None;
         for idx in 0..4 {
             let m = 1 << idx;
-            if room & m == m {
+            if bits & m == m {
                 mask = Some(idx);
                 break;
             }
         }
 
-        if mask.is_none() {
-            return None;
-        }
-
-        let mb = (3 - pos) * 4 + 7;
-        let mask = 1 << (mb + mask.unwrap());
+        let mask = 1 << mask?;
         let pod = if self.amber & mask == mask {
             Amphipod::Amber
         } else if self.bronze & mask == mask {
@@ -167,6 +87,155 @@ impl Burrow {
             return None;
         };
 
+        Some((pod, mask))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Room {
+    Room {
+        slots: [Option<Amphipod>; 4],
+        pos: usize,
+        len: usize,
+    },
+    Empty,
+}
+
+impl Room {
+    fn extract(&self) -> Option<&Amphipod> {
+        match self {
+            Room::Room {
+                slots: room, pos, ..
+            } => room[*pos].as_ref(),
+            Room::Empty => None,
+        }
+    }
+
+    fn take(&mut self) {
+        match self {
+            Room::Room {
+                slots: room,
+                pos,
+                len,
+            } => {
+                room[*pos].take();
+                *pos += 1;
+                if *pos == *len {
+                    *self = Room::Empty;
+                }
+            }
+            Room::Empty => {}
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.extract().is_none()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Burrow {
+    rooms: [Room; 4],
+    hallway: BitBoard,
+}
+
+const HALLWAY_MASK: u32 = 0b1111111;
+
+impl Burrow {
+    fn new(rooms: &[&[Amphipod]; 4]) -> Self {
+        let mut r: Vec<Room> = Vec::new();
+
+        for (room, members) in rooms.iter().enumerate() {
+            let mut pods = Vec::new();
+            // let mut amber = 0;
+            // let mut bronze = 0;
+            // let mut copper = 0;
+            // let mut desert = 0;
+
+            for (idx, pod) in members.iter().enumerate() {
+                pods.push(Some(*pod));
+                // let mask = 1 << (idx) as u8;
+                // match pod {
+                //     Amphipod::Amber => amber |= mask,
+                //     Amphipod::Bronze => bronze |= mask,
+                //     Amphipod::Copper => copper |= mask,
+                //     Amphipod::Desert => desert |= mask,
+                // };
+            }
+            let l = pods.len();
+            while pods.len() < 4 {
+                pods.push(None);
+            }
+            // r.push(BitBoard::new(amber, bronze, copper, desert));
+            r.push(Room::Room {
+                slots: pods.try_into().unwrap(),
+                pos: 0,
+                len: l,
+            });
+        }
+
+        Self {
+            rooms: r.try_into().unwrap(),
+            hallway: BitBoard::default(),
+        }
+    }
+
+    fn has_path(&self, start: usize, dist: usize) -> bool {
+        if dist == 0 {
+            true
+        } else {
+            let mask = ((2 << (dist - 1)) - 1) << (5 - dist - start);
+            self.hallway.flatten() & mask == 0
+        }
+    }
+
+    // fn commit(&mut self, pod: Amphipod, target: usize, mask1: u8, mask2: u8) {
+    fn commit(&mut self, pod: Amphipod, target: usize, mask2: u8) {
+        match pod {
+            Amphipod::Amber => {
+                self.rooms[target].take();
+                // self.rooms[target].amber &= !mask1;
+                self.hallway.amber |= mask2;
+            }
+            Amphipod::Bronze => {
+                self.rooms[target].take();
+                // self.rooms[target].bronze &= !mask1;
+                self.hallway.bronze |= mask2;
+            }
+            Amphipod::Copper => {
+                self.rooms[target].take();
+                // self.rooms[target].copper &= !mask1;
+                self.hallway.copper |= mask2;
+            }
+            Amphipod::Desert => {
+                // self.rooms[target].desert &= !mask1;
+                self.rooms[target].take();
+                self.hallway.desert |= mask2;
+            }
+        }
+
+        if self.rooms[0].is_empty() {
+            self.hallway.amber = 0;
+        }
+        if self.rooms[1].is_empty() {
+            self.hallway.bronze = 0;
+        }
+        if self.rooms[2].is_empty() {
+            self.hallway.copper = 0;
+        }
+        if self.rooms[3].is_empty() {
+            self.hallway.desert = 0;
+        }
+    }
+
+    // fn moves(&self, pos: usize) -> Option<(Amphipod, usize, u8, Vec<(u8, usize)>)> {
+    fn moves(&self, pos: usize) -> Option<(Amphipod, usize, Vec<(u8, usize)>)> {
+        // let (pod, mask) = self.rooms[pos].extract()?;
+        let pod = self.rooms[pos].extract()?;
+        // let pod = self.extract(pos)?;
+        // dbg!((pod, mask));
+
+        // FROM HERE
         let energy = pod.energy();
         let target = match pod {
             Amphipod::Amber => 0,
@@ -176,7 +245,7 @@ impl Burrow {
         };
 
         const COSTS: [usize; 7] = [2, 2, 4, 4, 4, 2, 2];
-        let hallway = self.hallway();
+        let hallway = self.hallway.flatten();
         let mut moves = Vec::with_capacity(7);
 
         let (start, end) = if pos < target {
@@ -189,7 +258,7 @@ impl Burrow {
         let basecost = dist * 2;
         let has_path = self.has_path(start, dist);
 
-        if has_path && self.is_room_empty(target) {
+        if has_path && self.rooms[target].is_empty() {
             moves.push((0, basecost * energy));
         } else {
             if has_path || pos < target {
@@ -230,7 +299,9 @@ impl Burrow {
             }
         }
 
-        (!moves.is_empty()).then(|| (pod, mask, moves))
+        // (!moves.is_empty()).then(|| (pod, pos, mask, moves))
+Some((*pod, pos, moves))
+        // (!moves.is_empty()).then(|| (*pod, pos, moves))
     }
 }
 
@@ -240,13 +311,15 @@ fn solve(rooms: &[&[Amphipod]; 4]) -> usize {
 
     while let Some((burrow, cost)) = stack.pop() {
         for t in (0..4).rev() {
-            if let Some((pod, mask, futures)) = burrow.moves(t) {
+            if let Some((pod, target, futures)) = burrow.moves(t) {
+                // if let Some((pod, target, mask, futures)) = burrow.moves(t) {
                 for future in futures {
                     let mut burrow = burrow;
                     let cost = cost + future.1;
                     if cost < min {
-                        burrow.commit(pod, mask, future.0);
-                        if burrow.is_empty() {
+                        // burrow.commit(pod, target, mask, future.0);
+                        burrow.commit(pod, target, future.0);
+                        if burrow.hallway.is_empty() {
                             min = cost;
                         } else {
                             stack.push((burrow, cost));
