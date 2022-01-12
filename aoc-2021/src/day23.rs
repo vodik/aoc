@@ -33,6 +33,18 @@ const fn entry_energy(n: usize) -> usize {
     base + base * 10 + base * 100 + base * 1000
 }
 
+fn exit_energy<const N: usize>(rooms: &[&[Amphipod; N]; 4]) -> usize {
+    let exit_energy: usize = rooms
+        .iter()
+        .flat_map(|room| {
+            room.iter()
+                .enumerate()
+                .map(|(idx, pod)| (idx + 1) * pod.energy())
+        })
+        .sum();
+    exit_energy
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 struct BitBoard {
     amber: u8,
@@ -42,15 +54,6 @@ struct BitBoard {
 }
 
 impl BitBoard {
-    fn new(amber: u8, bronze: u8, copper: u8, desert: u8) -> Self {
-        Self {
-            amber,
-            bronze,
-            copper,
-            desert,
-        }
-    }
-
     fn flatten(&self) -> u8 {
         self.amber | self.bronze | self.copper | self.desert
     }
@@ -58,50 +61,18 @@ impl BitBoard {
     fn is_empty(&self) -> bool {
         self.flatten() == 0
     }
-
-    fn extract(&self) -> Option<(Amphipod, u8)> {
-        let bits = self.flatten();
-        if bits == 0 {
-            return None;
-        }
-
-        let mut mask = None;
-        for idx in 0..4 {
-            let m = 1 << idx;
-            if bits & m == m {
-                mask = Some(idx);
-                break;
-            }
-        }
-
-        let mask = 1 << mask?;
-        let pod = if self.amber & mask == mask {
-            Amphipod::Amber
-        } else if self.bronze & mask == mask {
-            Amphipod::Bronze
-        } else if self.copper & mask == mask {
-            Amphipod::Copper
-        } else if self.desert & mask == mask {
-            Amphipod::Desert
-        } else {
-            return None;
-        };
-
-        Some((pod, mask))
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Room {
+enum Room<const N: usize> {
     Room {
-        slots: [Option<Amphipod>; 4],
+        slots: [Option<Amphipod>; N],
         pos: usize,
-        len: usize,
     },
     Empty,
 }
 
-impl Room {
+impl<const N: usize> Room<N> {
     fn extract(&self) -> Option<&Amphipod> {
         match self {
             Room::Room {
@@ -113,14 +84,10 @@ impl Room {
 
     fn take(&mut self) {
         match self {
-            Room::Room {
-                slots: room,
-                pos,
-                len,
-            } => {
+            Room::Room { slots: room, pos } => {
                 room[*pos].take();
                 *pos += 1;
-                if *pos == *len {
+                if *pos == N {
                     *self = Room::Empty;
                 }
             }
@@ -134,43 +101,21 @@ impl Room {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct Burrow {
-    rooms: [Room; 4],
+struct Burrow<const N: usize> {
+    rooms: [Room<N>; 4],
     hallway: BitBoard,
 }
 
-const HALLWAY_MASK: u32 = 0b1111111;
+impl<const N: usize> Burrow<N> {
+    fn new(rooms: &[&[Amphipod; N]; 4]) -> Self {
+        let mut r: Vec<Room<N>> = Vec::new();
 
-impl Burrow {
-    fn new(rooms: &[&[Amphipod]; 4]) -> Self {
-        let mut r: Vec<Room> = Vec::new();
+        for &members in rooms {
+            let pods: Vec<Option<_>> = members.iter().copied().map(Some).collect();
 
-        for (room, members) in rooms.iter().enumerate() {
-            let mut pods = Vec::new();
-            // let mut amber = 0;
-            // let mut bronze = 0;
-            // let mut copper = 0;
-            // let mut desert = 0;
-
-            for (idx, pod) in members.iter().enumerate() {
-                pods.push(Some(*pod));
-                // let mask = 1 << (idx) as u8;
-                // match pod {
-                //     Amphipod::Amber => amber |= mask,
-                //     Amphipod::Bronze => bronze |= mask,
-                //     Amphipod::Copper => copper |= mask,
-                //     Amphipod::Desert => desert |= mask,
-                // };
-            }
-            let l = pods.len();
-            while pods.len() < 4 {
-                pods.push(None);
-            }
-            // r.push(BitBoard::new(amber, bronze, copper, desert));
             r.push(Room::Room {
                 slots: pods.try_into().unwrap(),
                 pos: 0,
-                len: l,
             });
         }
 
@@ -189,28 +134,23 @@ impl Burrow {
         }
     }
 
-    // fn commit(&mut self, pod: Amphipod, target: usize, mask1: u8, mask2: u8) {
-    fn commit(&mut self, pod: Amphipod, target: usize, mask2: u8) {
+    fn commit(&mut self, pod: Amphipod, target: usize, mask: u8) {
         match pod {
             Amphipod::Amber => {
                 self.rooms[target].take();
-                // self.rooms[target].amber &= !mask1;
-                self.hallway.amber |= mask2;
+                self.hallway.amber |= mask;
             }
             Amphipod::Bronze => {
                 self.rooms[target].take();
-                // self.rooms[target].bronze &= !mask1;
-                self.hallway.bronze |= mask2;
+                self.hallway.bronze |= mask;
             }
             Amphipod::Copper => {
                 self.rooms[target].take();
-                // self.rooms[target].copper &= !mask1;
-                self.hallway.copper |= mask2;
+                self.hallway.copper |= mask;
             }
             Amphipod::Desert => {
-                // self.rooms[target].desert &= !mask1;
                 self.rooms[target].take();
-                self.hallway.desert |= mask2;
+                self.hallway.desert |= mask;
             }
         }
 
@@ -228,14 +168,9 @@ impl Burrow {
         }
     }
 
-    // fn moves(&self, pos: usize) -> Option<(Amphipod, usize, u8, Vec<(u8, usize)>)> {
     fn moves(&self, pos: usize) -> Option<(Amphipod, usize, Vec<(u8, usize)>)> {
-        // let (pod, mask) = self.rooms[pos].extract()?;
         let pod = self.rooms[pos].extract()?;
-        // let pod = self.extract(pos)?;
-        // dbg!((pod, mask));
 
-        // FROM HERE
         let energy = pod.energy();
         let target = match pod {
             Amphipod::Amber => 0,
@@ -299,26 +234,23 @@ impl Burrow {
             }
         }
 
-        // (!moves.is_empty()).then(|| (pod, pos, mask, moves))
-Some((*pod, pos, moves))
-        // (!moves.is_empty()).then(|| (*pod, pos, moves))
+        Some((*pod, pos, moves))
     }
 }
 
-fn solve(rooms: &[&[Amphipod]; 4]) -> usize {
-    let mut stack = vec![(Burrow::new(rooms), 0)];
+fn solve<const N: usize>(rooms: &[&[Amphipod; N]; 4]) -> usize {
+    let mut stack = vec![(Burrow::<N>::new(rooms), 0)];
     let mut min = usize::MAX;
 
     while let Some((burrow, cost)) = stack.pop() {
         for t in (0..4).rev() {
             if let Some((pod, target, futures)) = burrow.moves(t) {
-                // if let Some((pod, target, mask, futures)) = burrow.moves(t) {
                 for future in futures {
                     let mut burrow = burrow;
                     let cost = cost + future.1;
                     if cost < min {
-                        // burrow.commit(pod, target, mask, future.0);
                         burrow.commit(pod, target, future.0);
+
                         if burrow.hallway.is_empty() {
                             min = cost;
                         } else {
@@ -334,30 +266,20 @@ fn solve(rooms: &[&[Amphipod]; 4]) -> usize {
 }
 
 pub fn part1(input: &()) -> usize {
-    let rooms: [&[Amphipod]; 4] = [
+    let rooms: [&[Amphipod; 2]; 4] = [
         &[Amphipod::Amber, Amphipod::Desert],
         &[Amphipod::Copper, Amphipod::Desert],
         &[Amphipod::Bronze, Amphipod::Bronze],
         &[Amphipod::Amber, Amphipod::Copper],
     ];
 
-    let exit_energy: usize = rooms
-        .iter()
-        .flat_map(|room| {
-            room.iter()
-                .enumerate()
-                .map(|(idx, pod)| (idx + 1) * pod.energy())
-        })
-        .sum();
-
-    let transit_energy = solve(&rooms);
-    let r = entry_energy(2) + exit_energy + transit_energy;
-    assert_eq!(r, 18195);
-    r
+    let energy = entry_energy(2) + exit_energy(&rooms) + solve(&rooms);
+    assert_eq!(energy, 18195);
+    energy
 }
 
 pub fn part2(input: &()) -> usize {
-    let rooms: [&[Amphipod]; 4] = [
+    let rooms: [&[Amphipod; 4]; 4] = [
         &[
             Amphipod::Amber,
             Amphipod::Desert,
@@ -384,17 +306,7 @@ pub fn part2(input: &()) -> usize {
         ],
     ];
 
-    let exit_energy: usize = rooms
-        .iter()
-        .flat_map(|room| {
-            room.iter()
-                .enumerate()
-                .map(|(idx, pod)| (idx + 1) * pod.energy())
-        })
-        .sum();
-
-    let transit_energy = solve(&rooms);
-    let r = entry_energy(4) + exit_energy + transit_energy;
-    assert_eq!(r, 50265);
-    r
+    let energy = entry_energy(4) + exit_energy(&rooms) + solve(&rooms);
+    assert_eq!(energy, 50265);
+    energy
 }
