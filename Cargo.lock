@@ -21,6 +21,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "aoc-2022"
+version = "0.1.0"
+dependencies = [
+ "nom",
+]
+
+[[package]]
 name = "aoc-runner"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

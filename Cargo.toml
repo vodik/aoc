@@ -1,8 +1,9 @@
 [profile.release]
-debug = true
+lto = true
 
 [workspace]
 members = [
     "aoc-2020",
     "aoc-2021",
+    "aoc-2022",
 ]
