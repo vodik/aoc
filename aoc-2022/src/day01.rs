@@ -7,7 +7,7 @@ use nom::{
     sequence::terminated,
     Finish, IResult,
 };
-use std::{collections::BinaryHeap, str::FromStr};
+use std::str::FromStr;
 
 fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
     map_res(digit1, FromStr::from_str)(input)
@@ -41,6 +41,13 @@ pub fn part1(input: &[Vec<u32>]) -> u32 {
 }
 
 pub fn part2(input: &[Vec<u32>]) -> u32 {
-    let mut heap: BinaryHeap<_> = iter_packs(input).collect();
-    heap.pop().unwrap() + heap.pop().unwrap() + heap.pop().unwrap()
+    let top = iter_packs(input).fold([0; 3], |mut top, pack| {
+        if pack > top[0] {
+            top[0] = pack;
+            top.sort_unstable();
+        }
+        top
+    });
+
+    top.iter().sum()
 }
