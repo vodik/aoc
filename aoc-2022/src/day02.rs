@@ -31,9 +31,9 @@ impl Play {
         }
     }
 
-    fn score_game(&self, other: &Self) -> u32 {
-        self.score_play()
-            + match (self, other) {
+    fn score_game(&self, play: &Self) -> u32 {
+        play.score_play()
+            + match (self, play) {
                 (Play::Rock, Play::Rock) => 3,
                 (Play::Rock, Play::Paper) => 6,
                 (Play::Rock, Play::Scissors) => 0,
@@ -81,7 +81,7 @@ pub fn parse_input(input: &str) -> Vec<(Play, Cipher)> {
 }
 
 pub fn part1(input: &[(Play, Cipher)]) -> u32 {
-    input.iter().fold(0, |score, (challenge, cipher)| {
+    input.iter().fold(0, |score, &(challenge, cipher)| {
         let decoded_play = match cipher {
             Cipher::X => Play::Rock,
             Cipher::Y => Play::Paper,
@@ -93,14 +93,14 @@ pub fn part1(input: &[(Play, Cipher)]) -> u32 {
 }
 
 pub fn part2(input: &[(Play, Cipher)]) -> u32 {
-    input.iter().fold(0, |score, (challenge, cipher)| {
+    input.iter().fold(0, |score, &(challenge, cipher)| {
         let decoded_play = match cipher {
             Cipher::X => match challenge {
                 Play::Rock => Play::Scissors,
                 Play::Paper => Play::Rock,
                 Play::Scissors => Play::Paper,
             },
-            Cipher::Y => *challenge,
+            Cipher::Y => challenge,
             Cipher::Z => match challenge {
                 Play::Rock => Play::Paper,
                 Play::Paper => Play::Scissors,
