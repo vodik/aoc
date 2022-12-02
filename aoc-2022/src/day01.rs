@@ -4,6 +4,7 @@ use nom::{
     combinator::{all_consuming, map_res},
     error::Error,
     multi::separated_list1,
+    sequence::terminated,
     Finish, IResult,
 };
 use std::{collections::BinaryHeap, str::FromStr};
@@ -21,7 +22,7 @@ fn parse_groups(input: &str) -> IResult<&str, Vec<Vec<u32>>> {
 }
 
 pub fn parse_input(input: &str) -> Vec<Vec<u32>> {
-    match parse_groups(input).finish() {
+    match all_consuming(terminated(parse_groups, tag("\n")))(input).finish() {
         Ok((_, output)) => Ok(output),
         Err(Error { input, code }) => Err(Error {
             input: input.to_string(),
