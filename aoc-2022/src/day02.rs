@@ -10,7 +10,7 @@ use nom::{
 
 #[derive(Debug, Clone, Copy)]
 pub enum Play {
-    Rock,
+    Rock = 1,
     Paper,
     Scissors,
 }
@@ -24,11 +24,7 @@ pub enum Cipher {
 
 impl Play {
     fn score_play(&self) -> u32 {
-        match self {
-            Play::Rock => 1,
-            Play::Paper => 2,
-            Play::Scissors => 3,
-        }
+        *self as u32
     }
 
     fn score_game(&self, play: &Self) -> u32 {
