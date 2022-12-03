@@ -87,27 +87,21 @@ pub fn part1(input: &[(Play, Cipher)]) -> u32 {
             Cipher::Y => Play::Paper,
             Cipher::Z => Play::Scissors,
         };
-
         score + challenge.score_game(&decoded_play)
     })
 }
 
 pub fn part2(input: &[(Play, Cipher)]) -> u32 {
     input.iter().fold(0, |score, &(challenge, cipher)| {
-        let decoded_play = match cipher {
-            Cipher::X => match challenge {
-                Play::Rock => Play::Scissors,
-                Play::Paper => Play::Rock,
-                Play::Scissors => Play::Paper,
-            },
-            Cipher::Y => challenge,
-            Cipher::Z => match challenge {
-                Play::Rock => Play::Paper,
-                Play::Paper => Play::Scissors,
-                Play::Scissors => Play::Rock,
-            },
+        let decoded_play = match (cipher, challenge) {
+            (Cipher::X, Play::Rock) => Play::Scissors,
+            (Cipher::X, Play::Paper) => Play::Rock,
+            (Cipher::X, Play::Scissors) => Play::Paper,
+            (Cipher::Y, play) => play,
+            (Cipher::Z, Play::Rock) => Play::Paper,
+            (Cipher::Z, Play::Paper) => Play::Scissors,
+            (Cipher::Z, Play::Scissors) => Play::Rock,
         };
-
         score + challenge.score_game(&decoded_play)
     })
 }
