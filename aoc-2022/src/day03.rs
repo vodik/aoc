@@ -1,27 +1,3 @@
-struct Inventory(u64);
-
-impl Inventory {
-    fn intersect<T: IntoIterator<Item = u8>>(&mut self, iter: T) {
-        let store = iter
-            .into_iter()
-            .fold(0u64, |store, item| store | 1u64 << item);
-        self.0 &= store;
-    }
-
-    fn contains(&self, item: u8) -> bool {
-        self.0 & (1 << item) != 0
-    }
-}
-
-impl FromIterator<u8> for Inventory {
-    fn from_iter<T: IntoIterator<Item = u8>>(iter: T) -> Self {
-        Self(
-            iter.into_iter()
-                .fold(0u64, |store, item| store | 1u64 << item),
-        )
-    }
-}
-
 fn item_priority(item: u8) -> u8 {
     match item {
         b'a'..=b'z' => item - b'a' + 1,
@@ -30,49 +6,43 @@ fn item_priority(item: u8) -> u8 {
     }
 }
 
-pub fn parse_input(input: &str) -> Vec<Vec<u8>> {
+fn parse_compartment(items: &[u8]) -> u64 {
+    items
+        .iter()
+        .fold(0u64, |acc, &item| acc | 1u64 << item_priority(item))
+}
+
+pub fn parse_input(input: &str) -> Vec<(u64, u64)> {
     input
         .lines()
         .map(|line| {
-            line.as_bytes()
-                .iter()
-                .map(|&item| item_priority(item))
-                .collect()
+            let bytes = line.as_bytes();
+            let (left, right) = bytes.split_at(bytes.len() / 2);
+            (parse_compartment(left), parse_compartment(right))
         })
         .collect()
 }
 
-fn find_item(items: &[u8], inventory: &Inventory) -> u8 {
-    *items
-        .iter()
-        .find(|&&item| inventory.contains(item))
-        .unwrap()
+fn find_item(items: u64) -> u32 {
+    (1..=52).find(|&item| items & (1 << item) != 0).unwrap()
 }
 
-pub fn part1(input: &[Vec<u8>]) -> u32 {
+pub fn part1(input: &[(u64, u64)]) -> u32 {
     input
         .iter()
-        .map(|rucksack| {
-            let (left, right) = rucksack.split_at(rucksack.len() / 2);
-            let inventory: Inventory = left.iter().copied().collect();
-
-            (right, inventory)
-        })
-        .fold(0, |sum, (items, inventory)| {
-            sum + find_item(items, &inventory) as u32
-        })
+        .map(|(left, right)| left & right)
+        .fold(0, |sum, items| sum + find_item(items))
 }
 
-pub fn part2(input: &[Vec<u8>]) -> u32 {
+pub fn part2(input: &[(u64, u64)]) -> u32 {
     input
         .chunks(3)
         .map(|rucksacks| {
-            let mut inventory: Inventory = rucksacks[0].iter().copied().collect();
-            inventory.intersect(rucksacks[1].iter().copied());
-
-            (&rucksacks[2], inventory)
+            rucksacks
+                .iter()
+                .map(|(left, right)| left | right)
+                .reduce(|acc, rucksack| acc & rucksack)
+                .unwrap_or(0)
         })
-        .fold(0, |sum, (items, inventory)| {
-            sum + find_item(items, &inventory) as u32
-        })
+        .fold(0, |sum, items| sum + find_item(items))
 }
