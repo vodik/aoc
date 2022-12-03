@@ -23,15 +23,11 @@ pub fn parse_input(input: &str) -> Vec<(u64, u64)> {
         .collect()
 }
 
-fn find_item(items: u64) -> u32 {
-    (1..=52).find(|&item| items & (1 << item) != 0).unwrap()
-}
-
 pub fn part1(input: &[(u64, u64)]) -> u32 {
     input
         .iter()
-        .map(|(left, right)| left & right)
-        .fold(0, |sum, items| sum + find_item(items))
+        .map(|(left, right)| (left & right).trailing_zeros())
+        .sum()
 }
 
 pub fn part2(input: &[(u64, u64)]) -> u32 {
@@ -43,6 +39,7 @@ pub fn part2(input: &[(u64, u64)]) -> u32 {
                 .map(|(left, right)| left | right)
                 .reduce(|acc, rucksack| acc & rucksack)
                 .unwrap_or(0)
+                .trailing_zeros()
         })
-        .fold(0, |sum, items| sum + find_item(items))
+        .sum()
 }
