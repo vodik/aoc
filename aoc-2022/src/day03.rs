@@ -1,18 +1,14 @@
-struct Inventory([bool; 52]);
+struct Inventory(u64);
 
 impl Inventory {
     fn contains(&self, item: u8) -> bool {
-        self.0[item as usize - 1]
+        self.0 & (1 << item) != 0
     }
 }
 
 impl FromIterator<u8> for Inventory {
     fn from_iter<T: IntoIterator<Item = u8>>(iter: T) -> Self {
-        let mut store = [false; 52];
-        for item in iter {
-            store[item as usize - 1] = true;
-        }
-        Self(store)
+        Self(iter.into_iter().fold(0u64, |store, item| store | 1 << item))
     }
 }
 
