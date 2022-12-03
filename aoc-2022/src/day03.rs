@@ -1,6 +1,13 @@
 struct Inventory(u64);
 
 impl Inventory {
+    fn intersect<T: IntoIterator<Item = u8>>(&mut self, iter: T) {
+        let store = iter
+            .into_iter()
+            .fold(0u64, |store, item| store | 1u64 << item);
+        self.0 &= store;
+    }
+
     fn contains(&self, item: u8) -> bool {
         self.0 & (1 << item) != 0
     }
@@ -8,7 +15,10 @@ impl Inventory {
 
 impl FromIterator<u8> for Inventory {
     fn from_iter<T: IntoIterator<Item = u8>>(iter: T) -> Self {
-        Self(iter.into_iter().fold(0u64, |store, item| store | 1 << item))
+        Self(
+            iter.into_iter()
+                .fold(0u64, |store, item| store | 1u64 << item),
+        )
     }
 }
 
@@ -57,11 +67,8 @@ pub fn part2(input: &[Vec<u8>]) -> u32 {
     input
         .chunks(3)
         .map(|rucksacks| {
-            let inventory: Inventory = rucksacks[0]
-                .iter()
-                .chain(rucksacks[1].iter())
-                .copied()
-                .collect();
+            let mut inventory: Inventory = rucksacks[0].iter().copied().collect();
+            inventory.intersect(rucksacks[1].iter().copied());
 
             (&rucksacks[2], inventory)
         })
