@@ -1,7 +1,4 @@
-use std::{
-    fs,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 mod day01;
 mod day02;
@@ -18,7 +15,7 @@ where
 
 macro_rules! day {
     ($mod:ident) => {
-        let input = fs::read_to_string(concat!("./data/", stringify!($mod), ".txt")).unwrap();
+        let input = include_str!(concat!("../data/", stringify!($mod), ".txt"));
         let (dur, input) = time(|| $mod::parse_input(&input));
         println!(":: {}", stringify!($mod));
         println!("generator: {:?}", dur);
