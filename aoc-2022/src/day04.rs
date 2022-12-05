@@ -17,11 +17,11 @@ impl Interval {
     }
 
     fn inside(&self, other: &Interval) -> bool {
-        other.0 >= self.0 && other.1 <= self.1
+        self.0 <= other.0 && self.1 >= other.1
     }
 
     fn overlaps(&self, other: &Interval) -> bool {
-        self.0 <= other.1 && other.0 <= self.1
+        self.0 <= other.1 && self.1 >= other.0
     }
 }
 
