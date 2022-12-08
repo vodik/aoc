@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{alpha1, digit1, satisfy},
+    character::complete::{digit1, satisfy},
     combinator::{all_consuming, map, map_res, recognize},
     error::Error,
     multi::{many1, separated_list1},
@@ -14,14 +14,14 @@ use std::{
 };
 
 #[derive(Debug, Default)]
-pub struct Node {
+struct Metadata {
     size: u64,
-    children: BTreeMap<String, usize>,
 }
 
 #[derive(Debug)]
 pub struct Filesystem {
-    nodes: Vec<Node>,
+    nodes: Vec<Metadata>,
+    entries: BTreeMap<(usize, String), usize>,
 }
 
 impl Filesystem {
@@ -29,29 +29,29 @@ impl Filesystem {
 
     fn new() -> Self {
         Filesystem {
-            nodes: vec![Node::default()],
+            nodes: vec![Metadata::default()],
+            entries: BTreeMap::new(),
         }
     }
 
-    fn open_at(&mut self, dirfd: usize, path: &str) -> usize {
-        let next_fd = self.nodes.len();
-        let dir = &mut self.nodes[dirfd];
-        match dir.children.entry(path.into()) {
-            Entry::Vacant(entry) => {
-                entry.insert(next_fd);
-                self.nodes.push(Default::default());
-                next_fd
-            }
+    fn dir_entry(&mut self, inode: usize, path: &str) -> usize {
+        let next_inode = self.nodes.len();
+        match self.entries.entry((inode, path.into())) {
             Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => {
+                entry.insert(next_inode);
+                self.nodes.push(Default::default());
+                next_inode
+            }
         }
     }
 
-    fn get(&self, dirfd: usize) -> Option<&Node> {
-        self.nodes.get(dirfd)
+    fn get(&self, inode: usize) -> Option<&Metadata> {
+        self.nodes.get(inode)
     }
 
-    fn get_mut(&mut self, dirfd: usize) -> Option<&mut Node> {
-        self.nodes.get_mut(dirfd)
+    fn get_mut(&mut self, inode: usize) -> Option<&mut Metadata> {
+        self.nodes.get_mut(inode)
     }
 }
 
@@ -80,7 +80,7 @@ fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
 }
 
 fn parse_path(input: &str) -> IResult<&str, &str> {
-    recognize(many1(satisfy(|c| c.is_ascii_alphanumeric() || c == '.')))(input)
+    recognize(many1(satisfy(|c| c.is_ascii_graphic())))(input)
 }
 
 fn parse_output(input: &str) -> IResult<&str, Vec<Output>> {
@@ -89,13 +89,11 @@ fn parse_output(input: &str) -> IResult<&str, Vec<Output>> {
         alt((
             map(tag("$ cd /"), |_| Output::Cmd(Cmd::Cd(CdOpt::Root))),
             map(tag("$ cd .."), |_| Output::Cmd(Cmd::Cd(CdOpt::Up))),
-            map(preceded(tag("$ cd "), alpha1), |path: &str| {
+            map(preceded(tag("$ cd "), parse_path), |path| {
                 Output::Cmd(Cmd::Cd(CdOpt::Chdir(path)))
             }),
             map(tag("$ ls"), |_| Output::Cmd(Cmd::Ls)),
-            map(terminated(tag("dir "), parse_path), |path: &str| {
-                Output::Directory(path)
-            }),
+            map(terminated(tag("dir "), parse_path), Output::Directory),
             map(tuple((number, tag(" "), parse_path)), |(size, _, _)| {
                 Output::File(size)
             }),
@@ -105,32 +103,30 @@ fn parse_output(input: &str) -> IResult<&str, Vec<Output>> {
 
 pub fn make_filesystem(input: &[Output]) -> Filesystem {
     let mut fs = Filesystem::new();
-    let mut path = vec![];
+    let mut stack = vec![];
 
     for op in input {
         match op {
             Output::Cmd(Cmd::Cd(CdOpt::Root)) => {
-                path.clear();
-                path.push(Filesystem::ROOT);
+                stack.clear();
+                stack.push(Filesystem::ROOT);
             }
             Output::Cmd(Cmd::Cd(CdOpt::Up)) => {
-                path.pop();
+                stack.pop();
             }
             Output::Cmd(Cmd::Cd(CdOpt::Chdir(dir))) => {
-                let topfd = path.last().unwrap();
-                let fd = fs.open_at(*topfd, dir);
-                path.push(fd);
+                let top_inode = stack.last().unwrap();
+                stack.push(fs.dir_entry(*top_inode, dir));
             }
             Output::File(size) => {
-                for fd in &path {
-                    let node = fs.get_mut(*fd).unwrap();
-                    node.size += size;
+                for &inode in &stack {
+                    let dir_entry = fs.get_mut(inode).unwrap();
+                    dir_entry.size += size;
                 }
             }
             _ => {}
         }
     }
-
     fs
 }
 
@@ -149,7 +145,7 @@ pub fn parse_input(input: &str) -> Filesystem {
 pub fn part1(fs: &Filesystem) -> u64 {
     fs.nodes
         .iter()
-        .map(|node| node.size)
+        .map(|dir_entry| dir_entry.size)
         .filter(|&size| size <= 100_000)
         .sum()
 }
@@ -161,8 +157,8 @@ pub fn part2(fs: &Filesystem) -> u64 {
 
     fs.nodes
         .iter()
-        .map(|node| node.size)
-        .filter(|&size| size.checked_sub(needed).is_some())
+        .map(|dir_entry| dir_entry.size)
+        .filter(|&size| size >= needed)
         .min()
         .unwrap()
 }
