@@ -8,26 +8,16 @@ use nom::{
     sequence::{preceded, terminated, tuple},
     Finish, IResult,
 };
-use std::{
-    collections::{btree_map::Entry, BTreeMap},
-    str::FromStr,
-};
+use std::str::FromStr;
 
 #[derive(Debug, Default)]
 struct Node {
-    children: BTreeMap<String, usize>,
+    children: Vec<usize>,
 }
 
 #[derive(Debug, Default)]
 struct Metadata {
     size: u64,
-    size_hint: u64,
-}
-
-impl Metadata {
-    fn size(&self) -> u64 {
-        self.size + self.size_hint
-    }
 }
 
 #[derive(Debug)]
@@ -58,9 +48,9 @@ impl Filesystem {
                     let inode = stack.pop().unwrap();
                     fs.reify_size(inode);
                 }
-                Output::Cmd(Cmd::Cd(CdOpt::Chdir(dir))) => {
+                Output::Cmd(Cmd::Cd(CdOpt::Chdir(_))) => {
                     let inode = stack.last().unwrap();
-                    stack.push(fs.dir_entry(*inode, dir));
+                    stack.push(fs.dir_entry(*inode));
                 }
                 Output::File(size) => {
                     let inode = stack.last().unwrap();
@@ -77,25 +67,20 @@ impl Filesystem {
         fs
     }
 
-    fn dir_entry(&mut self, inode: usize, path: &str) -> usize {
+    fn dir_entry(&mut self, inode: usize) -> usize {
         let next_inode = self.nodes.len();
-        match self.nodes[inode].children.entry(path.into()) {
-            Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => {
-                entry.insert(next_inode);
-                self.nodes.push(Node::default());
-                self.metadata.push(Metadata::default());
-                next_inode
-            }
-        }
+        self.nodes.push(Node::default());
+        self.metadata.push(Metadata::default());
+        self.nodes[inode].children.push(next_inode);
+        next_inode
     }
 
     fn reify_size(&mut self, inode: usize) {
-        self.metadata[inode].size_hint = self.nodes[inode]
+        self.metadata[inode].size += self.nodes[inode]
             .children
-            .values()
-            .map(|&inode| self.metadata[inode].size())
-            .sum();
+            .iter()
+            .map(|&inode| self.metadata[inode].size)
+            .sum::<u64>();
     }
 
     fn get(&self, inode: usize) -> Option<&Metadata> {
@@ -171,18 +156,18 @@ pub fn parse_input(input: &str) -> Filesystem {
 
 pub fn part1(fs: &Filesystem) -> u64 {
     fs.metadata()
-        .map(|metadata| metadata.size())
+        .map(|metadata| metadata.size)
         .filter(|&size| size <= 100_000)
         .sum()
 }
 
 pub fn part2(fs: &Filesystem) -> u64 {
-    let used = fs.get(Filesystem::ROOT).unwrap().size();
+    let used = fs.get(Filesystem::ROOT).unwrap().size;
     let free = 70_000_000 - used;
     let needed = 30_000_000 - free;
 
     fs.metadata()
-        .map(|metadata| metadata.size())
+        .map(|metadata| metadata.size)
         .filter(|&size| size >= needed)
         .min()
         .unwrap()
