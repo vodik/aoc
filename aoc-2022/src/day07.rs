@@ -10,92 +10,6 @@ use nom::{
 };
 use std::str::FromStr;
 
-#[derive(Debug, Default)]
-struct Node {
-    children: Vec<usize>,
-}
-
-#[derive(Debug, Default)]
-struct Metadata {
-    size: u64,
-}
-
-#[derive(Debug)]
-pub struct Filesystem {
-    nodes: Vec<Node>,
-    metadata: Vec<Metadata>,
-}
-
-impl Filesystem {
-    const ROOT: usize = 0;
-
-    fn new(capacity: usize) -> Self {
-        let mut nodes = Vec::with_capacity(capacity);
-        nodes.push(Node::default());
-        let mut metadata = Vec::with_capacity(capacity);
-        metadata.push(Metadata::default());
-        Filesystem { nodes, metadata }
-    }
-
-    fn from_replay(input: &[Output]) -> Self {
-        let mut fs = Filesystem::new(input.len() / 2);
-        let mut stack = vec![Filesystem::ROOT];
-
-        for op in &input[1..] {
-            match op {
-                Output::Cmd(Cmd::Cd(CdOpt::Root)) => todo!(),
-                Output::Cmd(Cmd::Cd(CdOpt::Up)) => {
-                    let inode = stack.pop().unwrap();
-                    fs.reify_size(inode);
-                }
-                Output::Cmd(Cmd::Cd(CdOpt::Chdir(_))) => {
-                    let inode = stack.last().unwrap();
-                    stack.push(fs.dir_entry(*inode));
-                }
-                Output::File(size) => {
-                    let inode = stack.last().unwrap();
-                    fs.get_mut(*inode).unwrap().size += *size;
-                }
-                _ => {}
-            }
-        }
-
-        while let Some(inode) = stack.pop() {
-            fs.reify_size(inode);
-        }
-
-        fs
-    }
-
-    fn dir_entry(&mut self, inode: usize) -> usize {
-        let next_inode = self.nodes.len();
-        self.nodes.push(Node::default());
-        self.metadata.push(Metadata::default());
-        self.nodes[inode].children.push(next_inode);
-        next_inode
-    }
-
-    fn reify_size(&mut self, inode: usize) {
-        self.metadata[inode].size += self.nodes[inode]
-            .children
-            .iter()
-            .map(|&inode| self.metadata[inode].size)
-            .sum::<u64>();
-    }
-
-    fn get(&self, inode: usize) -> Option<&Metadata> {
-        self.metadata.get(inode)
-    }
-
-    fn get_mut(&mut self, inode: usize) -> Option<&mut Metadata> {
-        self.metadata.get_mut(inode)
-    }
-
-    fn metadata(&self) -> impl Iterator<Item = &Metadata> {
-        self.metadata.iter()
-    }
-}
-
 #[derive(Debug)]
 pub enum CdOpt<'a> {
     Root,
@@ -142,7 +56,7 @@ fn parse_output(input: &str) -> IResult<&str, Vec<Output>> {
     )(input)
 }
 
-pub fn parse_input(input: &str) -> Filesystem {
+pub fn parse_input(input: &str) -> Vec<u64> {
     match all_consuming(terminated(parse_output, tag("\n")))(input).finish() {
         Ok((_, output)) => Ok(output),
         Err(Error { input, code }) => Err(Error {
@@ -150,25 +64,56 @@ pub fn parse_input(input: &str) -> Filesystem {
             code,
         }),
     }
-    .map(|ops| Filesystem::from_replay(&ops))
+    .map(|ops| filesystem_from_replay(&ops))
     .unwrap()
 }
 
-pub fn part1(fs: &Filesystem) -> u64 {
-    fs.metadata()
-        .map(|metadata| metadata.size)
-        .filter(|&size| size <= 100_000)
-        .sum()
+fn filesystem_from_replay(input: &[Output]) -> Vec<u64> {
+    let mut folders = Vec::with_capacity(200);
+    let mut stack = Vec::with_capacity(20);
+
+    stack.push(0);
+    for op in &input[1..] {
+        match op {
+            Output::Cmd(Cmd::Cd(CdOpt::Root)) => todo!(),
+            Output::Cmd(Cmd::Cd(CdOpt::Up)) => {
+                let dir_size = stack.pop().unwrap();
+                folders.push(dir_size);
+                *stack.last_mut().unwrap() += dir_size;
+            }
+            Output::Cmd(Cmd::Cd(CdOpt::Chdir(_))) => {
+                stack.push(0);
+            }
+            Output::File(size) => {
+                *stack.last_mut().unwrap() += *size;
+            }
+            _ => {}
+        }
+    }
+
+    folders.extend(stack.drain(..).rev().scan(0, |acc, dir_size| {
+        let cur_size = dir_size + *acc;
+        *acc += dir_size;
+        Some(cur_size)
+    }));
+
+    folders
 }
 
-pub fn part2(fs: &Filesystem) -> u64 {
-    let used = fs.get(Filesystem::ROOT).unwrap().size;
+pub fn part1(input: &[u64]) -> u64 {
+    input.iter().rev().filter(|&&size| size <= 100_000).sum()
+}
+
+pub fn part2(input: &[u64]) -> u64 {
+    let mut sizes = input.iter().rev();
+
+    let used = sizes.next().unwrap();
     let free = 70_000_000 - used;
     let needed = 30_000_000 - free;
 
-    fs.metadata()
-        .map(|metadata| metadata.size)
-        .filter(|&size| size >= needed)
+    sizes
+        .filter(|&&size| size >= needed)
         .min()
+        .copied()
         .unwrap()
 }
