@@ -16,12 +16,24 @@ use std::{
 #[derive(Debug, Default)]
 struct Node {
     children: BTreeMap<String, usize>,
+}
+
+#[derive(Debug, Default)]
+struct Metadata {
     size: u64,
+    size_hint: u64,
+}
+
+impl Metadata {
+    fn size(&self) -> u64 {
+        self.size + self.size_hint
+    }
 }
 
 #[derive(Debug)]
 pub struct Filesystem {
     nodes: Vec<Node>,
+    metadata: Vec<Metadata>,
 }
 
 impl Filesystem {
@@ -30,7 +42,39 @@ impl Filesystem {
     fn new(capacity: usize) -> Self {
         let mut nodes = Vec::with_capacity(capacity);
         nodes.push(Node::default());
-        Filesystem { nodes }
+        let mut metadata = Vec::with_capacity(capacity);
+        metadata.push(Metadata::default());
+        Filesystem { nodes, metadata }
+    }
+
+    fn from_replay(input: &[Output]) -> Self {
+        let mut fs = Filesystem::new(input.len() / 2);
+        let mut stack = vec![Filesystem::ROOT];
+
+        for op in &input[1..] {
+            match op {
+                Output::Cmd(Cmd::Cd(CdOpt::Root)) => todo!(),
+                Output::Cmd(Cmd::Cd(CdOpt::Up)) => {
+                    let inode = stack.pop().unwrap();
+                    fs.reify_size(inode);
+                }
+                Output::Cmd(Cmd::Cd(CdOpt::Chdir(dir))) => {
+                    let inode = stack.last().unwrap();
+                    stack.push(fs.dir_entry(*inode, dir));
+                }
+                Output::File(size) => {
+                    let inode = stack.last().unwrap();
+                    fs.get_mut(*inode).unwrap().size += *size;
+                }
+                _ => {}
+            }
+        }
+
+        while let Some(inode) = stack.pop() {
+            fs.reify_size(inode);
+        }
+
+        fs
     }
 
     fn dir_entry(&mut self, inode: usize, path: &str) -> usize {
@@ -40,31 +84,30 @@ impl Filesystem {
             Entry::Vacant(entry) => {
                 entry.insert(next_inode);
                 self.nodes.push(Node::default());
+                self.metadata.push(Metadata::default());
                 next_inode
             }
         }
     }
 
-    fn reify_size(&mut self, inode: usize) -> u64 {
-        let size: u64 = self.nodes[inode]
+    fn reify_size(&mut self, inode: usize) {
+        self.metadata[inode].size_hint = self.nodes[inode]
             .children
             .values()
-            .map(|&inode| self.nodes[inode].size)
+            .map(|&inode| self.metadata[inode].size())
             .sum();
-        self.nodes[inode].size += size;
-        size
     }
 
-    fn get(&self, inode: usize) -> Option<&Node> {
-        self.nodes.get(inode)
+    fn get(&self, inode: usize) -> Option<&Metadata> {
+        self.metadata.get(inode)
     }
 
-    fn get_mut(&mut self, inode: usize) -> Option<&mut Node> {
-        self.nodes.get_mut(inode)
+    fn get_mut(&mut self, inode: usize) -> Option<&mut Metadata> {
+        self.metadata.get_mut(inode)
     }
 
-    fn nodes(&self) -> impl Iterator<Item = &Node> {
-        self.nodes.iter()
+    fn metadata(&self) -> impl Iterator<Item = &Metadata> {
+        self.metadata.iter()
     }
 }
 
@@ -114,64 +157,32 @@ fn parse_output(input: &str) -> IResult<&str, Vec<Output>> {
     )(input)
 }
 
-pub fn make_filesystem(input: &[Output]) -> Filesystem {
-    let mut fs = Filesystem::new(input.len());
-    let mut stack = vec![Filesystem::ROOT];
-
-    for op in &input[1..] {
-        match op {
-            Output::Cmd(Cmd::Cd(CdOpt::Root)) => {
-                todo!();
-            }
-            Output::Cmd(Cmd::Cd(CdOpt::Up)) => {
-                let inode = stack.pop().unwrap();
-                fs.reify_size(inode);
-            }
-            Output::Cmd(Cmd::Cd(CdOpt::Chdir(dir))) => {
-                let inode = stack.last().unwrap();
-                stack.push(fs.dir_entry(*inode, dir));
-            }
-            Output::File(size) => {
-                let inode = stack.last().unwrap();
-                fs.get_mut(*inode).unwrap().size += *size;
-            }
-            _ => {}
-        }
-    }
-
-    while let Some(inode) = stack.pop() {
-        fs.reify_size(inode);
-    }
-
-    fs
-}
-
 pub fn parse_input(input: &str) -> Filesystem {
-    let ops = match all_consuming(terminated(parse_output, tag("\n")))(input).finish() {
+    match all_consuming(terminated(parse_output, tag("\n")))(input).finish() {
         Ok((_, output)) => Ok(output),
         Err(Error { input, code }) => Err(Error {
             input: input.to_string(),
             code,
         }),
     }
-    .unwrap();
-    make_filesystem(&ops)
+    .map(|ops| Filesystem::from_replay(&ops))
+    .unwrap()
 }
 
 pub fn part1(fs: &Filesystem) -> u64 {
-    fs.nodes()
-        .map(|node| node.size)
+    fs.metadata()
+        .map(|metadata| metadata.size())
         .filter(|&size| size <= 100_000)
         .sum()
 }
 
 pub fn part2(fs: &Filesystem) -> u64 {
-    let used = fs.get(Filesystem::ROOT).unwrap().size;
+    let used = fs.get(Filesystem::ROOT).unwrap().size();
     let free = 70_000_000 - used;
     let needed = 30_000_000 - free;
 
-    fs.nodes()
-        .map(|node| node.size)
+    fs.metadata()
+        .map(|metadata| metadata.size())
         .filter(|&size| size >= needed)
         .min()
         .unwrap()
