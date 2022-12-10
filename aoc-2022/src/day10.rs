@@ -41,69 +41,68 @@ pub fn parse_input(input: &str) -> Vec<Op> {
     .unwrap()
 }
 
+struct Cpu<'a> {
+    memory: &'a [Op],
+    addx_running: Option<i64>,
+    x: i64,
+    pc: usize,
+}
+
+impl<'a> Cpu<'a> {
+    fn new(memory: &'a [Op]) -> Self {
+        Self {
+            memory,
+            addx_running: None,
+            x: 1,
+            pc: 0,
+        }
+    }
+
+    fn step(&mut self) -> i64 {
+        if let Some(delay) = self.addx_running.take() {
+            let x = self.x;
+            self.x = delay;
+            x
+        } else {
+            match &self.memory[self.pc] {
+                Op::Noop => {}
+                Op::Addx(value) => {
+                    self.addx_running = Some(self.x + *value);
+                }
+            }
+            self.pc += 1;
+            self.x
+        }
+    }
+}
+
 pub fn part1(input: &[Op]) -> i64 {
-    let mut addx_running = None;
-    let mut pc = 0;
-    let mut strength = 1;
+    let mut cpu = Cpu::new(input);
     let mut sum = 0;
 
     for cycle in 1..=220 {
-        let mut next_strength = strength;
-
-        if let Some(delay) = addx_running.take() {
-            next_strength = delay;
-        } else {
-            match &input[pc] {
-                Op::Noop => {}
-                Op::Addx(value) => {
-                    addx_running = Some(strength + *value);
-                }
-            }
-            pc += 1;
-        }
-
+        let x = cpu.step();
         if matches!(cycle, 20 | 60 | 100 | 140 | 180 | 220) {
-            sum += cycle as i64 * strength;
+            sum += cycle as i64 * x;
         }
-
-        strength = next_strength;
     }
 
     sum
 }
 
-pub fn part2(input: &[Op]) -> u64 {
-    let mut addx_running = None;
-    let mut pc = 0;
-    let mut strength = 1;
-
-    let mut screen = vec![b' '; 40 * 6];
+pub fn part2(input: &[Op]) {
+    let mut cpu = Cpu::new(input);
+    let mut screen = [b' '; 40 * 6];
 
     for cycle in 1..=240 {
-        let mut next_strength = strength;
-
-        if let Some(delay) = addx_running.take() {
-            next_strength = delay;
-        } else {
-            match &input[pc] {
-                Op::Noop => {}
-                Op::Addx(value) => {
-                    addx_running = Some(strength + *value);
-                }
-            }
-            pc += 1;
-        }
-
         let pixel = cycle - 1;
-        if [strength - 1, strength, strength + 1].contains(&(pixel % 40)) {
+        let x = cpu.step();
+        if (x - 1..x + 2).contains(&(pixel % 40)) {
             screen[pixel as usize] = b'#';
         }
-
-        strength = next_strength;
     }
 
     for row in screen.chunks(40) {
         println!("{}", std::str::from_utf8(row).unwrap());
     }
-    0
 }
