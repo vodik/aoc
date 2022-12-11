@@ -114,26 +114,24 @@ impl Monkey {
     }
 }
 
-pub fn part1(input: &[Monkey]) -> usize {
-    let mut items: Vec<_> = input
+pub fn part1(monkeys: &[Monkey]) -> usize {
+    let mut items: Vec<_> = monkeys
         .iter()
         .enumerate()
         .flat_map(|(pos, monkey)| monkey.starting_items.iter().map(move |&item| (pos, item)))
         .collect();
 
-    let mut moves = vec![0usize; input.len()];
+    let mut moves = vec![0usize; monkeys.len()];
     for _ in 0..20 {
         for pair in &mut items {
             let (mut pos, item) = *pair;
 
-            let monkey = &input[pos];
             moves[pos] += 1;
-            let (mut dest, mut item) = monkey.inspect_and_throw::<3>(item);
+            let (mut dest, mut item) = monkeys[pos].inspect_and_throw::<3>(item);
             while dest > pos {
                 pos = dest;
-                let monkey = &input[pos];
                 moves[pos] += 1;
-                (dest, item) = monkey.inspect_and_throw::<3>(item);
+                (dest, item) = monkeys[pos].inspect_and_throw::<3>(item);
             }
 
             *pair = (dest, item);
@@ -144,27 +142,25 @@ pub fn part1(input: &[Monkey]) -> usize {
     moves.iter().rev().take(2).product()
 }
 
-pub fn part2(input: &[Monkey]) -> usize {
-    let gcd: u64 = input.iter().map(|monkey| monkey.test).product();
-    let mut items: Vec<_> = input
+pub fn part2(monkeys: &[Monkey]) -> usize {
+    let gcd: u64 = monkeys.iter().map(|monkey| monkey.test).product();
+    let mut items: Vec<_> = monkeys
         .iter()
         .enumerate()
         .flat_map(|(pos, monkey)| monkey.starting_items.iter().map(move |&item| (pos, item)))
         .collect();
 
-    let mut moves = vec![0usize; input.len()];
+    let mut moves = vec![0usize; monkeys.len()];
     for _ in 0..10_000 {
         for pair in &mut items {
             let (mut pos, item) = *pair;
 
-            let monkey = &input[pos];
             moves[pos] += 1;
-            let (mut dest, mut item) = monkey.inspect_and_throw::<1>(item);
+            let (mut dest, mut item) = monkeys[pos].inspect_and_throw::<1>(item);
             while dest > pos {
                 pos = dest;
-                let monkey = &input[pos];
                 moves[pos] += 1;
-                (dest, item) = monkey.inspect_and_throw::<1>(item);
+                (dest, item) = monkeys[pos].inspect_and_throw::<1>(item);
             }
 
             *pair = (dest, item % gcd);
