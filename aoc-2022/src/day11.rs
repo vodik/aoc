@@ -10,29 +10,23 @@ use nom::{
 };
 use std::str::FromStr;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Monkey {
-    items: Vec<u64>,
+    starting_items: Vec<u64>,
     operation: Expr,
     test: u64,
-    if_true: usize,
-    if_false: usize,
+    true_dest: usize,
+    false_dest: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Term {
-    Old,
-    Literal(u64),
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub enum Op {
     Add,
     Mul,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Expr(Term, Op, Term);
+#[derive(Debug)]
+pub struct Expr(Option<u64>, Op, Option<u64>);
 
 fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
     map_res(recognize(tuple((opt(tag("-")), digit1))), FromStr::from_str)(input)
@@ -42,8 +36,8 @@ fn parse_item_list(input: &str) -> IResult<&str, Vec<u64>> {
     separated_list1(tag(", "), number)(input)
 }
 
-fn parse_term(input: &str) -> IResult<&str, Term> {
-    alt((map(tag("old"), |_| Term::Old), map(number, Term::Literal)))(input)
+fn parse_term(input: &str) -> IResult<&str, Option<u64>> {
+    alt((map(tag("old"), |_| None), map(number, Some)))(input)
 }
 
 fn parse_operation(input: &str) -> IResult<&str, Expr> {
@@ -72,12 +66,12 @@ fn parse_monkey(input: &str) -> IResult<&str, Monkey> {
             preceded(tag("\n    If true: throw to monkey "), number),
             preceded(tag("\n    If false: throw to monkey "), number),
         )),
-        |(_, _, _, items, operation, test, if_true, if_false)| Monkey {
-            items,
+        |(_, _, _, starting_items, operation, test, true_dest, false_dest)| Monkey {
+            starting_items,
             operation,
             test,
-            if_true,
-            if_false,
+            true_dest,
+            false_dest,
         },
     )(input)
 }
@@ -99,16 +93,8 @@ pub fn parse_input(input: &str) -> Vec<Monkey> {
 
 impl Expr {
     fn eval(&self, item: u64) -> u64 {
-        let lhs = match self.0 {
-            Term::Old => item,
-            Term::Literal(literal) => literal,
-        };
-
-        let rhs = match self.2 {
-            Term::Old => item,
-            Term::Literal(literal) => literal,
-        };
-
+        let lhs = self.0.unwrap_or(item);
+        let rhs = self.2.unwrap_or(item);
         match self.1 {
             Op::Add => lhs + rhs,
             Op::Mul => lhs * rhs,
@@ -117,31 +103,40 @@ impl Expr {
 }
 
 impl Monkey {
-    fn inspect_and_throw<const WORRY: u64>(&mut self) -> impl Iterator<Item = (usize, u64)> + '_ {
-        self.items.drain(..).map(|item| {
-            let mut item = self.operation.eval(item);
-            item /= WORRY;
-            if item % self.test == 0 {
-                (self.if_true, item)
-            } else {
-                (self.if_false, item)
-            }
-        })
+    fn inspect_and_throw<const WORRY: u64>(&self, item: u64) -> (usize, u64) {
+        let item = self.operation.eval(item) / WORRY;
+        let dest = if item % self.test == 0 {
+            self.true_dest
+        } else {
+            self.false_dest
+        };
+        (dest, item)
     }
 }
 
 pub fn part1(input: &[Monkey]) -> usize {
-    let mut monkeys = input.to_vec();
-    let mut moves = vec![0usize; monkeys.len()];
+    let mut items: Vec<_> = input
+        .iter()
+        .enumerate()
+        .flat_map(|(pos, monkey)| monkey.starting_items.iter().map(move |&item| (pos, item)))
+        .collect();
 
-    let mut buf = Vec::with_capacity(200);
+    let mut moves = vec![0usize; input.len()];
     for _ in 0..20 {
-        for pos in 0..monkeys.len() {
-            moves[pos] += monkeys[pos].items.len();
-            buf.extend(monkeys[pos].inspect_and_throw::<3>());
-            for (target, item) in buf.drain(..) {
-                monkeys[target].items.push(item);
+        for pair in &mut items {
+            let (mut pos, item) = *pair;
+
+            let monkey = &input[pos];
+            moves[pos] += 1;
+            let (mut dest, mut item) = monkey.inspect_and_throw::<3>(item);
+            while dest > pos {
+                pos = dest;
+                let monkey = &input[pos];
+                moves[pos] += 1;
+                (dest, item) = monkey.inspect_and_throw::<3>(item);
             }
+
+            *pair = (dest, item);
         }
     }
 
@@ -150,18 +145,29 @@ pub fn part1(input: &[Monkey]) -> usize {
 }
 
 pub fn part2(input: &[Monkey]) -> usize {
-    let mut monkeys = input.to_vec();
-    let mut moves = vec![0usize; monkeys.len()];
-    let gcd: u64 = monkeys.iter().map(|monkey| monkey.test).product();
+    let gcd: u64 = input.iter().map(|monkey| monkey.test).product();
+    let mut items: Vec<_> = input
+        .iter()
+        .enumerate()
+        .flat_map(|(pos, monkey)| monkey.starting_items.iter().map(move |&item| (pos, item)))
+        .collect();
 
-    let mut buf = Vec::with_capacity(200);
+    let mut moves = vec![0usize; input.len()];
     for _ in 0..10_000 {
-        for pos in 0..monkeys.len() {
-            moves[pos] += monkeys[pos].items.len();
-            buf.extend(monkeys[pos].inspect_and_throw::<1>());
-            for (target, item) in buf.drain(..) {
-                monkeys[target].items.push(item % gcd);
+        for pair in &mut items {
+            let (mut pos, item) = *pair;
+
+            let monkey = &input[pos];
+            moves[pos] += 1;
+            let (mut dest, mut item) = monkey.inspect_and_throw::<1>(item);
+            while dest > pos {
+                pos = dest;
+                let monkey = &input[pos];
+                moves[pos] += 1;
+                (dest, item) = monkey.inspect_and_throw::<1>(item);
             }
+
+            *pair = (dest, item % gcd);
         }
     }
 
