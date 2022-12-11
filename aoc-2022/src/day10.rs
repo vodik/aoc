@@ -59,10 +59,8 @@ impl<'a> Cpu<'a> {
     }
 
     fn step(&mut self) -> i64 {
-        if let Some(delay) = self.addx_running.take() {
-            let x = self.x;
-            self.x = delay;
-            x
+        if let Some(new_x) = self.addx_running.take() {
+            std::mem::replace(&mut self.x, new_x)
         } else {
             match &self.memory[self.pc] {
                 Op::Noop => {}
