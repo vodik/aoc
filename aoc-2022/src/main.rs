@@ -7,6 +7,7 @@ mod day04;
 mod day05;
 mod day06;
 mod day07;
+mod day09;
 mod day10;
 mod day11;
 
@@ -41,6 +42,7 @@ fn main() {
     day!(day05);
     day!(day06);
     day!(day07);
+    day!(day09);
     day!(day10);
     day!(day11);
 
