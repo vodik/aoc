@@ -1,5 +1,7 @@
 use std::time::{Duration, Instant};
 
+mod day01;
+
 fn time<F, R>(f: F) -> (Duration, R)
 where
     F: Fn() -> R,
@@ -23,6 +25,8 @@ macro_rules! day {
 
 fn main() {
     let now = Instant::now();
+
+    day!(day01);
 
     println!("total: {:?}", now.elapsed());
 }
