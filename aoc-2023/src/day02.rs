@@ -25,6 +25,10 @@ pub struct Set {
 }
 
 impl Set {
+    fn valid(&self) -> bool {
+        self.red <= 12 && self.green <= 13 && self.blue <= 14
+    }
+
     fn merge(&self, other: &Set) -> Set {
         Set {
             red: u32::max(self.red, other.red),
@@ -92,12 +96,7 @@ pub fn part1(input: &[Vec<Set>]) -> usize {
     input
         .iter()
         .enumerate()
-        .filter_map(|(index, game)| {
-            let valid = !game
-                .iter()
-                .any(|game| game.red > 12 || game.green > 13 || game.blue > 14);
-            valid.then_some(index + 1)
-        })
+        .filter_map(|(index, game)| game.iter().all(Set::valid).then_some(index + 1))
         .sum()
 }
 
