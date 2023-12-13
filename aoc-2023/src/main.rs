@@ -8,6 +8,7 @@ mod day06;
 mod day07;
 mod day08;
 mod day09;
+mod day10;
 
 fn time<F, R>(f: F) -> (Duration, R)
 where
@@ -41,6 +42,7 @@ fn main() {
     day!(day07);
     day!(day08);
     day!(day09);
+    day!(day10);
 
     println!("total: {:?}", now.elapsed());
 }
