@@ -108,23 +108,21 @@ pub fn part1(input: &Map) -> u64 {
 }
 
 pub fn part2(input: &Map) -> u64 {
-    let starting_positions = input
+    input
         .network
         .iter()
         .enumerate()
         .filter_map(|(position, &edges)| {
             (position % 26 == 0 && edges.is_some()).then_some(position)
-        });
-
-    let mut max_moves = 0;
-    for position in starting_positions {
-        let moves = traverse(input, position);
-        max_moves = match max_moves {
-            0 => moves,
-            _ => lcd(max_moves, moves),
-        }
-    }
-    max_moves
+        })
+        .fold(None, |max_moves, position| {
+            let moves = traverse(input, position);
+            match max_moves {
+                None => Some(moves),
+                Some(max_moves) => Some(lcd(max_moves, moves)),
+            }
+        })
+        .unwrap()
 }
 
 fn gcd(mut a: u64, mut b: u64) -> u64 {
