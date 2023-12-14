@@ -55,47 +55,47 @@ enum Direction {
     West,
 }
 
-fn try_step(map: &[Tile], (step, position): (Direction, usize)) -> Option<(Direction, usize)> {
-    match step {
+fn try_step(map: &[Tile], (heading, position): (Direction, usize)) -> Option<(Direction, usize)> {
+    match heading {
         Direction::North => {
-            let next_pos = up(position, WIDTH)?;
-            let next_step = match map[next_pos] {
+            let next_position = up(position, WIDTH)?;
+            let next_heading = match map[next_position] {
                 Tile::Vertical => Some(Direction::North),
                 Tile::BendSE => Some(Direction::East),
                 Tile::BendSW => Some(Direction::West),
                 _ => None,
-            };
-            next_step.map(|step| (step, next_pos))
+            }?;
+            Some((next_heading, next_position))
         }
         Direction::East => {
-            let next_pos = right(position, WIDTH)?;
-            let next_step = match map[next_pos] {
+            let next_position = right(position, WIDTH)?;
+            let next_heading = match map[next_position] {
                 Tile::Horizonal => Some(Direction::East),
                 Tile::BendNW => Some(Direction::North),
                 Tile::BendSW => Some(Direction::South),
                 _ => None,
-            };
-            next_step.map(|step| (step, next_pos))
+            }?;
+            Some((next_heading, next_position))
         }
         Direction::South => {
-            let next_pos = down(position, WIDTH)?;
-            let next_step = match map[next_pos] {
+            let next_position = down(position, WIDTH)?;
+            let next_heading = match map[next_position] {
                 Tile::Vertical => Some(Direction::South),
                 Tile::BendNE => Some(Direction::East),
                 Tile::BendNW => Some(Direction::West),
                 _ => None,
-            };
-            next_step.map(|step| (step, next_pos))
+            }?;
+            Some((next_heading, next_position))
         }
         Direction::West => {
-            let next_pos = left(position, WIDTH)?;
-            let next_step = match map[next_pos] {
+            let next_position = left(position, WIDTH)?;
+            let next_heading = match map[next_position] {
                 Tile::Horizonal => Some(Direction::West),
                 Tile::BendNE => Some(Direction::North),
                 Tile::BendSE => Some(Direction::South),
                 _ => None,
-            };
-            next_step.map(|step| (step, next_pos))
+            }?;
+            Some((next_heading, next_position))
         }
     }
 }
@@ -156,25 +156,25 @@ pub fn part2(map: &[Tile]) -> usize {
             if edge {
                 match tile {
                     Tile::Vertical => {
-                        inside ^= true;
+                        inside = !inside;
                     }
                     Tile::Start | Tile::BendNE => {
-                        inside ^= true;
+                        inside = !inside;
                         direction = Some(Direction::North);
                     }
                     Tile::BendNW => {
                         if direction == Some(Direction::North) {
-                            inside ^= true;
+                            inside = !inside;
                         }
                         direction = None;
                     }
                     Tile::BendSE => {
-                        inside ^= true;
+                        inside = !inside;
                         direction = Some(Direction::South);
                     }
                     Tile::BendSW => {
                         if direction == Some(Direction::South) {
-                            inside ^= true;
+                            inside = !inside;
                         }
                         direction = None;
                     }
