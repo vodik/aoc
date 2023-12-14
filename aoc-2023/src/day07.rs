@@ -32,7 +32,7 @@ impl Hand {
     }
 
     fn score(&self, score: fn(u8) -> Option<u8>) -> ScoredHand {
-        ScoredHand::new(&self, score)
+        ScoredHand::new(self, score)
     }
 }
 

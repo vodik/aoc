@@ -67,7 +67,10 @@ struct Player {
 
 impl Player {
     fn new(position: u16) -> Self {
-        Self { position: position - 1, score: 0 }
+        Self {
+            position: position - 1,
+            score: 0,
+        }
     }
 
     fn advance(&mut self, rolls: u16) {
