@@ -30,6 +30,10 @@ impl Hand {
     fn new(cards: [u8; 5], bid: u32) -> Self {
         Self { cards, bid }
     }
+
+    fn score(&self, score: fn(u8) -> Option<u8>) -> ScoredHand {
+        ScoredHand::new(&self, score)
+    }
 }
 
 fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
@@ -123,17 +127,17 @@ pub fn part1(input: &[Hand]) -> usize {
     let mut hands: Vec<_> = input
         .iter()
         .map(|hand| {
-            ScoredHand::new(hand, |card| match card {
-                b'J' => Some(1),
-                b'2' => Some(2),
-                b'3' => Some(3),
-                b'4' => Some(4),
-                b'5' => Some(5),
-                b'6' => Some(6),
-                b'7' => Some(7),
-                b'8' => Some(8),
-                b'9' => Some(9),
-                b'T' => Some(10),
+            hand.score(|card| match card {
+                b'2' => Some(1),
+                b'3' => Some(2),
+                b'4' => Some(3),
+                b'5' => Some(4),
+                b'6' => Some(5),
+                b'7' => Some(6),
+                b'8' => Some(7),
+                b'9' => Some(8),
+                b'T' => Some(9),
+                b'J' => Some(10),
                 b'Q' => Some(11),
                 b'K' => Some(12),
                 b'A' => Some(13),
@@ -154,7 +158,7 @@ pub fn part2(input: &[Hand]) -> usize {
     let mut hands: Vec<_> = input
         .iter()
         .map(|hand| {
-            ScoredHand::new(hand, |card| match card {
+            hand.score(|card| match card {
                 b'J' => Some(0),
                 b'2' => Some(1),
                 b'3' => Some(2),
