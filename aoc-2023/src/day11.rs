@@ -19,21 +19,16 @@ pub fn parse_input(input: &str) -> Vec<Tile> {
         .collect()
 }
 
-fn pairs<T: Copy>(slice: &[T]) -> impl Iterator<Item = (T, T)> + '_ {
-    (0..slice.len()).flat_map(move |i| (i + 1..slice.len()).map(move |j| (slice[i], slice[j])))
+fn expansion_prefix_sums_x(map: &[Tile], scale: usize) -> impl Iterator<Item = usize> + '_ {
+    (0..WIDTH)
+        .map(|x| (0..WIDTH).all(|y| map[WIDTH * y + x] == Tile::Empty))
+        .scan(0, move |dist, empty| {
+            *dist += if empty { scale } else { 1 };
+            Some(*dist)
+        })
 }
 
-fn calculate_universe_expansion(map: &[Tile]) -> (Vec<usize>, Vec<usize>) {
-    let scale_x = (0..WIDTH)
-        .filter(|&x| (0..WIDTH).all(|y| map[WIDTH * y + x] == Tile::Empty))
-        .collect();
-    let scale_y = (0..WIDTH)
-        .filter(|&y| (0..WIDTH).all(|x| map[WIDTH * y + x] == Tile::Empty))
-        .collect();
-    (scale_x, scale_y)
-}
-
-fn iter_galaxies_x(map: &[Tile]) -> impl Iterator<Item = (usize, usize)> + '_ {
+fn galaxies_x(map: &[Tile]) -> impl Iterator<Item = (usize, usize)> + '_ {
     (0..WIDTH).filter_map(|x| {
         let count = (0..WIDTH)
             .filter(|y| map[WIDTH * y + x] == Tile::Galaxy)
@@ -42,7 +37,16 @@ fn iter_galaxies_x(map: &[Tile]) -> impl Iterator<Item = (usize, usize)> + '_ {
     })
 }
 
-fn iter_galaxies_y(map: &[Tile]) -> impl Iterator<Item = (usize, usize)> + '_ {
+fn expansion_prefix_sums_y(map: &[Tile], scale: usize) -> impl Iterator<Item = usize> + '_ {
+    (0..WIDTH)
+        .map(|y| (0..WIDTH).all(|x| map[WIDTH * y + x] == Tile::Empty))
+        .scan(0, move |dist, empty| {
+            *dist += if empty { scale } else { 1 };
+            Some(*dist)
+        })
+}
+
+fn galaxies_y(map: &[Tile]) -> impl Iterator<Item = (usize, usize)> + '_ {
     (0..WIDTH).filter_map(|y| {
         let count = (0..WIDTH)
             .filter(|x| map[WIDTH * y + x] == Tile::Galaxy)
@@ -51,46 +55,38 @@ fn iter_galaxies_y(map: &[Tile]) -> impl Iterator<Item = (usize, usize)> + '_ {
     })
 }
 
-fn calculate_distances<const SCALE: usize>(
+fn pairs<T: Copy>(slice: &[T]) -> impl Iterator<Item = (T, T)> + '_ {
+    (0..slice.len()).flat_map(move |i| (i + 1..slice.len()).map(move |j| (slice[i], slice[j])))
+}
+
+fn calculate_distances(
     (d1, count1): (usize, usize),
     (d2, count2): (usize, usize),
-    scales: &[usize],
+    prefix_sums: &[usize],
 ) -> usize {
-    let expansion_factor = scales
-        .iter()
-        .filter(|&position| (d1 + 1..d2).contains(position))
-        .count();
-    (d2 - d1 + expansion_factor * (SCALE - 1)) * count1 * count2
+    (prefix_sums[d2] - prefix_sums[d1]) * count1 * count2
+}
+
+pub fn solution(map: &[Tile], scale: usize) -> usize {
+    let prefix_sums_x = expansion_prefix_sums_x(map, scale).collect::<Vec<_>>();
+    let galaxies_x = galaxies_x(map).collect::<Vec<_>>();
+    let dx = pairs(&galaxies_x)
+        .map(|(a, b)| calculate_distances(a, b, &prefix_sums_x))
+        .sum::<usize>();
+
+    let prefix_sums_y = expansion_prefix_sums_y(map, scale).collect::<Vec<_>>();
+    let galaxies_y = galaxies_y(map).collect::<Vec<_>>();
+    let dy = pairs(&galaxies_y)
+        .map(|(a, b)| calculate_distances(a, b, &prefix_sums_y))
+        .sum::<usize>();
+
+    dx + dy
 }
 
 pub fn part1(map: &[Tile]) -> usize {
-    let (scale_x, scale_y) = calculate_universe_expansion(map);
-
-    let galaxies_x = iter_galaxies_x(map).collect::<Vec<_>>();
-    let dx = pairs(&galaxies_x)
-        .map(|(a, b)| calculate_distances::<2>(a, b, &scale_x))
-        .sum::<usize>();
-
-    let galaxies_y = iter_galaxies_y(map).collect::<Vec<_>>();
-    let dy = pairs(&galaxies_y)
-        .map(|(a, b)| calculate_distances::<2>(a, b, &scale_y))
-        .sum::<usize>();
-
-    dx + dy
+    solution(map, 2)
 }
 
 pub fn part2(map: &[Tile]) -> usize {
-    let (scale_x, scale_y) = calculate_universe_expansion(map);
-
-    let galaxies_x = iter_galaxies_x(map).collect::<Vec<_>>();
-    let dx = pairs(&galaxies_x)
-        .map(|(a, b)| calculate_distances::<1_000_000>(a, b, &scale_x))
-        .sum::<usize>();
-
-    let galaxies_y = iter_galaxies_y(map).collect::<Vec<_>>();
-    let dy = pairs(&galaxies_y)
-        .map(|(a, b)| calculate_distances::<1_000_000>(a, b, &scale_y))
-        .sum::<usize>();
-
-    dx + dy
+    solution(map, 1_000_000)
 }
