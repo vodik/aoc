@@ -25,7 +25,7 @@ pub fn parse_input(input: &str) -> Vec<Tile> {
                 b'J' => Tile::BendNW,
                 b'F' => Tile::BendSE,
                 b'7' => Tile::BendSW,
-                _ => Tile::Ground,
+                _ => unreachable!(),
             })
         })
         .collect()
