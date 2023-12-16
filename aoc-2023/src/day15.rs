@@ -8,16 +8,7 @@ pub fn parse_input(input: &str) -> Vec<Vec<u8>> {
         .collect()
 }
 
-fn hash(input: &[u8]) -> u8 {
-    input
-        .iter()
-        .fold(0u8, |acc, &c| acc.wrapping_add(c).wrapping_mul(17))
-}
-
-pub fn part1(input: &[Vec<u8>]) -> u32 {
-    input.iter().map(|step| hash(step) as u32).sum()
-}
-
+#[inline(always)]
 fn hash_and_label(input: &[u8]) -> (u8, u16) {
     input.iter().fold((0u8, 0u16), |(hash, label), &c| {
         (
@@ -25,6 +16,10 @@ fn hash_and_label(input: &[u8]) -> (u8, u16) {
             (label << 8) | c as u16,
         )
     })
+}
+
+pub fn part1(input: &[Vec<u8>]) -> u32 {
+    input.iter().map(|step| hash_and_label(step).0 as u32).sum()
 }
 
 #[derive(Debug, Default, Clone, Copy)]
