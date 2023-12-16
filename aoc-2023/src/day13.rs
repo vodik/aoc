@@ -30,10 +30,13 @@ impl Grid {
         vertical.clear();
         vertical.resize(self.width, 0);
 
-        for (position, point) in self.grid.iter().enumerate() {
-            if *point == b'#' {
-                vertical[position % self.width] |= 1 << (position / self.width);
-                horizontal[position / self.width] |= 1 << (position % self.width);
+        for (position, &point) in self.grid.iter().enumerate() {
+            if point == b'#' {
+                let x = position % self.width;
+                let y = position / self.width;
+
+                vertical[x] |= 1 << y;
+                horizontal[y] |= 1 << x;
             }
         }
     }
@@ -80,63 +83,55 @@ pub fn parse_input(input: &str) -> Vec<Grid> {
     .unwrap()
 }
 
-fn find_reflection(slices: &[u64]) -> Option<usize> {
-    (1..slices.len()).find_map(|pivot| {
-        let (left, right) = slices.split_at(pivot);
-        left.iter()
-            .rev()
-            .zip(right)
-            .all(|(&a, &b)| a == b)
-            .then_some(pivot)
-    })
+pub fn summarize_patterns(
+    input: &[Grid],
+    find_reflection_fn: fn(&[u64]) -> Option<usize>,
+) -> usize {
+    let mut horizontal = Vec::with_capacity(64);
+    let mut vertical = Vec::with_capacity(64);
+
+    input
+        .iter()
+        .flat_map(|grid| {
+            grid.slice(&mut horizontal, &mut vertical);
+            find_reflection_fn(&horizontal)
+                .map(|score| score * 100)
+                .or_else(|| find_reflection_fn(&vertical))
+        })
+        .sum()
 }
 
 pub fn part1(input: &[Grid]) -> usize {
-    let mut horizontal = Vec::with_capacity(64);
-    let mut vertical = Vec::with_capacity(64);
-
-    input
-        .iter()
-        .flat_map(|grid| {
-            grid.slice(&mut horizontal, &mut vertical);
-            find_reflection(&horizontal)
-                .map(|score| score * 100)
-                .or_else(|| find_reflection(&vertical))
+    summarize_patterns(input, |slices| {
+        (1..slices.len()).find_map(|pivot| {
+            let (left, right) = slices.split_at(pivot);
+            left.iter()
+                .rev()
+                .zip(right)
+                .all(|(&a, &b)| a == b)
+                .then_some(pivot)
         })
-        .sum()
-}
-
-fn find_smudged_reflection(slices: &[u64]) -> Option<usize> {
-    'outer: for pivot in 1..slices.len() {
-        let (left, right) = slices.split_at(pivot);
-
-        let mut distortion_found = false;
-        for (&a, &b) in left.iter().rev().zip(right) {
-            match (a == b, distortion_found) {
-                (true, _) => continue,
-                (false, false) if (a ^ b).count_ones() == 1 => distortion_found = true,
-                _ => continue 'outer,
-            }
-        }
-
-        if distortion_found {
-            return Some(pivot);
-        }
-    }
-    None
+    })
 }
 
 pub fn part2(input: &[Grid]) -> usize {
-    let mut horizontal = Vec::with_capacity(64);
-    let mut vertical = Vec::with_capacity(64);
+    summarize_patterns(input, |slices| {
+        'outer: for pivot in 1..slices.len() {
+            let (left, right) = slices.split_at(pivot);
 
-    input
-        .iter()
-        .flat_map(|grid| {
-            grid.slice(&mut horizontal, &mut vertical);
-            find_smudged_reflection(&horizontal)
-                .map(|score| score * 100)
-                .or_else(|| find_smudged_reflection(&vertical))
-        })
-        .sum()
+            let mut distortion_found = false;
+            for (&a, &b) in left.iter().rev().zip(right) {
+                match (a == b, distortion_found) {
+                    (true, _) => continue,
+                    (false, false) if (a ^ b).count_ones() == 1 => distortion_found = true,
+                    _ => continue 'outer,
+                }
+            }
+
+            if distortion_found {
+                return Some(pivot);
+            }
+        }
+        None
+    })
 }
