@@ -32,9 +32,7 @@ impl Grid {
 
         for (position, &point) in self.grid.iter().enumerate() {
             if point == b'#' {
-                let x = position % self.width;
-                let y = position / self.width;
-
+                let (x, y) = (position % self.width, position / self.width);
                 vertical[x] |= 1 << y;
                 horizontal[y] |= 1 << x;
             }
@@ -119,16 +117,16 @@ pub fn part2(input: &[Grid]) -> usize {
         'outer: for pivot in 1..slices.len() {
             let (left, right) = slices.split_at(pivot);
 
-            let mut distortion_found = false;
+            let mut smudge_found = false;
             for (&a, &b) in left.iter().rev().zip(right) {
-                match (a == b, distortion_found) {
+                match (a == b, smudge_found) {
                     (true, _) => continue,
-                    (false, false) if (a ^ b).count_ones() == 1 => distortion_found = true,
+                    (false, false) if (a ^ b).count_ones() == 1 => smudge_found = true,
                     _ => continue 'outer,
                 }
             }
 
-            if distortion_found {
+            if smudge_found {
                 return Some(pivot);
             }
         }
