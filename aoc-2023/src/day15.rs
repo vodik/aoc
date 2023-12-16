@@ -1,7 +1,4 @@
-use std::{
-    mem::{self, MaybeUninit},
-    ptr,
-};
+use std::num::NonZeroU16;
 
 pub fn parse_input(input: &str) -> Vec<Vec<u8>> {
     input
@@ -21,31 +18,24 @@ pub fn part1(input: &[Vec<u8>]) -> u32 {
     input.iter().map(|step| hash(step) as u32).sum()
 }
 
-fn hash_and_label(input: &[u8]) -> (u8, u32) {
-    input.iter().fold((0u8, 0u32), |(hash, label), &c| {
+fn hash_and_label(input: &[u8]) -> (u8, u16) {
+    input.iter().fold((0u8, 0u16), |(hash, label), &c| {
         (
             hash.wrapping_add(c).wrapping_mul(17),
-            (label << 8) | c as u32,
+            (label << 8) | c as u16,
         )
     })
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 struct Entry {
-    lenses: [Option<(u32, u8)>; 6],
+    lenses: [Option<(NonZeroU16, u8)>; 6],
     len: usize,
 }
 
 impl Entry {
-    fn remove(&mut self, label: u32) {
-        let position = self.iter().position(|entry| entry.0 == label);
-        if let Some(position) = position {
-            self.lenses.copy_within(position + 1.., position);
-            self.len -= 1;
-        }
-    }
-
-    fn insert(&mut self, label: u32, focal_length: u8) {
+    fn insert(&mut self, label: u16, focal_length: u8) {
+        let label = NonZeroU16::new(label).unwrap();
         if let Some(entry) = self.iter_mut().find(|entry| entry.0 == label) {
             entry.1 = focal_length;
             return;
@@ -54,21 +44,30 @@ impl Entry {
         self.len += 1;
     }
 
+    fn remove(&mut self, label: u16) {
+        let label = NonZeroU16::new(label).unwrap();
+        let position = self.iter().position(|entry| entry.0 == label);
+        if let Some(position) = position {
+            self.lenses.copy_within(position + 1.., position);
+            self.len -= 1;
+        }
+    }
+
     fn len(&self) -> usize {
         self.len
     }
 
-    fn iter(&self) -> impl Iterator<Item = &(u32, u8)> + '_ {
+    fn iter(&self) -> impl Iterator<Item = &(NonZeroU16, u8)> + '_ {
         self.lenses.iter().take(self.len).flatten()
     }
 
-    fn iter_mut(&mut self) -> impl Iterator<Item = &mut (u32, u8)> + '_ {
+    fn iter_mut(&mut self) -> impl Iterator<Item = &mut (NonZeroU16, u8)> + '_ {
         self.lenses.iter_mut().take(self.len).flatten()
     }
 }
 
 pub fn part2(input: &[Vec<u8>]) -> usize {
-    let mut boxes = stack_alloc_boxes();
+    let mut boxes = [Entry::default(); 256];
 
     for step in input {
         let len = step.len();
@@ -99,12 +98,4 @@ pub fn part2(input: &[Vec<u8>]) -> usize {
                 .sum::<usize>()
         })
         .sum()
-}
-
-fn stack_alloc_boxes() -> [Entry; 256] {
-    let mut data: [MaybeUninit<Entry>; 256] = unsafe { MaybeUninit::uninit().assume_init() };
-    data.iter_mut().for_each(|elem| unsafe {
-        ptr::write(elem.as_mut_ptr(), Entry::default());
-    });
-    unsafe { mem::transmute::<_, [Entry; 256]>(data) }
 }
