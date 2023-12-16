@@ -68,16 +68,22 @@ fn calculate_distances(
 }
 
 pub fn solution(map: &[Tile], scale: usize) -> usize {
-    let prefix_sums_x = expansion_prefix_sums_x(map, scale).collect::<Vec<_>>();
-    let galaxies_x = galaxies_x(map).collect::<Vec<_>>();
-    let dx = pairs(&galaxies_x)
-        .map(|(a, b)| calculate_distances(a, b, &prefix_sums_x))
+    let mut prefix_sums = Vec::with_capacity(140);
+    let mut galaxies = Vec::with_capacity(140);
+
+    prefix_sums.extend(expansion_prefix_sums_x(map, scale));
+    galaxies.extend(galaxies_x(map));
+    let dx = pairs(&galaxies)
+        .map(|(a, b)| calculate_distances(a, b, &prefix_sums))
         .sum::<usize>();
 
-    let prefix_sums_y = expansion_prefix_sums_y(map, scale).collect::<Vec<_>>();
-    let galaxies_y = galaxies_y(map).collect::<Vec<_>>();
-    let dy = pairs(&galaxies_y)
-        .map(|(a, b)| calculate_distances(a, b, &prefix_sums_y))
+    prefix_sums.clear();
+    galaxies.clear();
+
+    prefix_sums.extend(expansion_prefix_sums_y(map, scale));
+    galaxies.extend(galaxies_y(map));
+    let dy = pairs(&galaxies)
+        .map(|(a, b)| calculate_distances(a, b, &prefix_sums))
         .sum::<usize>();
 
     dx + dy
