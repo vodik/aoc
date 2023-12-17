@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 const WIDTH: usize = 100;
 const LIMIT: usize = 1_000_000_000;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tile {
     Empty,
     Round,
@@ -117,7 +117,7 @@ pub fn part1(map: &[Tile]) -> usize {
 
 pub fn part2(map: &[Tile]) -> usize {
     let mut map = map.to_vec();
-    let mut seen = HashMap::new();
+    let mut seen = BTreeMap::new();
 
     for i in 1.. {
         tilt_north(&mut map);
