@@ -139,20 +139,21 @@ pub fn part1(input: &Almanac) -> u64 {
         .unwrap()
 }
 
-pub fn part2(input: &Almanac) -> u64 {
-    input
-        .seeds
-        .chunks(2)
-        .flat_map(|range| (range[0]..range[0] + range[1]))
-        .map(|seed| {
-            let soil = input.seed_to_soil_map.get(seed);
-            let fertilizer = input.soil_to_fertilizer_map.get(soil);
-            let water = input.fertilizer_to_water.get(fertilizer);
-            let light = input.water_to_light.get(water);
-            let temperature = input.light_to_temperature.get(light);
-            let humidity = input.temperature_to_humidity.get(temperature);
-            input.humidity_to_location.get(humidity)
-        })
-        .min()
-        .unwrap()
+pub fn part2(_input: &Almanac) -> u64 {
+    0
+    // input
+    //     .seeds
+    //     .chunks(2)
+    //     .flat_map(|range| (range[0]..range[0] + range[1]))
+    //     .map(|seed| {
+    //         let soil = input.seed_to_soil_map.get(seed);
+    //         let fertilizer = input.soil_to_fertilizer_map.get(soil);
+    //         let water = input.fertilizer_to_water.get(fertilizer);
+    //         let light = input.water_to_light.get(water);
+    //         let temperature = input.light_to_temperature.get(light);
+    //         let humidity = input.temperature_to_humidity.get(temperature);
+    //         input.humidity_to_location.get(humidity)
+    //     })
+    //     .min()
+    //     .unwrap()
 }

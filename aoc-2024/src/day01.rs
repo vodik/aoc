@@ -1,16 +1,16 @@
 pub fn parse_input(input: &str) -> (Vec<u32>, Vec<u32>) {
-    let mut left_set = vec![];
-    let mut right_set = vec![];
+    let mut left_list = vec![];
+    let mut right_list = vec![];
 
     for line in input.lines() {
         let (left, right) = line.split_once("   ").unwrap();
-        left_set.push(left.parse().unwrap());
-        right_set.push(right.parse().unwrap());
+        left_list.push(left.parse().unwrap());
+        right_list.push(right.parse().unwrap());
     }
 
-    left_set.sort_unstable();
-    right_set.sort_unstable();
-    (left_set, right_set)
+    left_list.sort_unstable();
+    right_list.sort_unstable();
+    (left_list, right_list)
 }
 
 pub fn part1((left, right): &(Vec<u32>, Vec<u32>)) -> u32 {
@@ -20,19 +20,26 @@ pub fn part1((left, right): &(Vec<u32>, Vec<u32>)) -> u32 {
         .sum()
 }
 
-pub(crate) fn part2((left, right): &(Vec<u32>, Vec<u32>)) -> u32 {
-    let min = *right.first().unwrap();
-    let max = *right.last().unwrap();
+pub fn part2((left, right): &(Vec<u32>, Vec<u32>)) -> u32 {
+    let mut frequencies = Vec::with_capacity(right.len());
+    for &value in right {
+        match frequencies.last_mut() {
+            Some((state, count)) if value == *state => *count += 1,
+            _ => frequencies.push((value, 1)),
+        }
+    }
 
-    let frequency = right
-        .iter()
-        .fold(vec![0u8; (max - min + 1) as _], |mut acc, value| {
-            acc[(value - min) as usize] += 1;
-            acc
-        });
+    let mut acc = 0;
+    let mut cursor = 0;
+    for (right_value, frequency) in frequencies {
+        while cursor < left.len() && left[cursor] < right_value {
+            cursor += 1;
+        }
 
-    left.iter()
-        .filter(|&&value| value >= min && value <= max)
-        .map(|value| value * frequency[(value - min) as usize] as u32)
-        .sum()
+        if cursor < left.len() && left[cursor] == right_value {
+            acc += right_value * frequency;
+            cursor += 1;
+        }
+    }
+    acc
 }
