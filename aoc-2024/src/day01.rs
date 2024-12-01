@@ -1,3 +1,5 @@
+use std::simd::{cmp::SimdPartialOrd, u32x8};
+
 pub fn parse_input(input: &str) -> (Vec<u32>, Vec<u32>) {
     let mut left_list = vec![];
     let mut right_list = vec![];
@@ -32,6 +34,17 @@ pub fn part2((left, right): &(Vec<u32>, Vec<u32>)) -> u32 {
     let mut acc = 0;
     let mut cursor = 0;
     for (right_value, frequency) in frequencies {
+        let right_simd = u32x8::splat(right_value as u32);
+        while cursor + u32x8::LEN <= left.len() {
+            let chunk = u32x8::from_slice(&left[cursor..]);
+            let mask = chunk.simd_ge(right_simd).to_bitmask();
+            if mask != 0 {
+                cursor += mask.trailing_zeros() as usize;
+                break;
+            }
+            cursor += u32x8::LEN;
+        }
+
         while cursor < left.len() && left[cursor] < right_value {
             cursor += 1;
         }
@@ -39,6 +52,10 @@ pub fn part2((left, right): &(Vec<u32>, Vec<u32>)) -> u32 {
         if cursor < left.len() && left[cursor] == right_value {
             acc += right_value * frequency;
             cursor += 1;
+        }
+
+        if cursor >= left.len() {
+            break;
         }
     }
     acc

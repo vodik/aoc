@@ -1,3 +1,4 @@
+#![feature(portable_simd)]
 use std::time::{Duration, Instant};
 
 mod day01;
