@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 nom = "7"
+
+[features]
+avx2 = []
