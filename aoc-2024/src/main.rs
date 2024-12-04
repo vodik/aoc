@@ -2,6 +2,7 @@
 use std::time::{Duration, Instant};
 
 mod day01;
+mod day02;
 mod day03;
 
 fn time<F, R>(f: F) -> (Duration, R)
@@ -29,6 +30,7 @@ fn main() {
     let now = Instant::now();
 
     day!(day01);
+    day!(day02);
     day!(day03);
 
     println!("total: {:?}", now.elapsed());
