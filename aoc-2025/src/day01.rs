@@ -45,7 +45,7 @@ pub fn part2(ops: &[Op]) -> u32 {
         .scan(50i32, |pos, op| {
             let residue = match op.dir {
                 Dir::Left => *pos,
-                Dir::Right => (-*pos).rem_euclid(100),
+                Dir::Right => 100 - *pos,
             };
 
             *pos = (*pos + op.step).rem_euclid(100);
