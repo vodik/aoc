@@ -16,22 +16,27 @@ impl Buffer {
 
     fn set_value(&mut self, mut n: u64) -> usize {
         let mut i = 0;
-        loop {
-            self.0[i] = (n % 10) as u8;
-            n /= 10;
+
+        // Magic constant for dividing u64 by 10:
+        // q = floor(n / 10) = (n * 0xCCCCCCCCCCCCCCCD) >> 67
+        const INV10: u128 = 0xCCCCCCCCCCCCCCCD;
+
+        while n > 9 {
+            let q = ((n as u128 * INV10) >> 67) as u64;
+            let digit = n - q * 10;
+            self.0[i] = digit as u8;
+            n = q;
             i += 1;
-            if n == 0 {
-                break;
-            }
         }
-        i
+
+        self.0[i] = n as u8;
+        i + 1
     }
 }
 
 impl Index<usize> for Buffer {
     type Output = u8;
 
-    #[inline(always)]
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
     }
